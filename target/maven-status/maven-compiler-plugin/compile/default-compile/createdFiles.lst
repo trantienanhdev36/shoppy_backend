@@ -1,0 +1,17 @@
+com\shoppy\backend\common\enums\UserRole.class
+com\shoppy\backend\ShoppyApplication.class
+com\shoppy\backend\common\dto\ApiResponse.class
+com\shoppy\backend\dto\request\user\RegisterRequest.class
+com\shoppy\backend\service\UserService.class
+com\shoppy\backend\entity\ShippingCompany.class
+com\shoppy\backend\repository\UserRepository.class
+com\shoppy\backend\entity\User.class
+com\shoppy\backend\common\enums\UserStatus.class
+com\shoppy\backend\entity\ShippingCompany$ShippingCompanyBuilder.class
+com\shoppy\backend\entity\User$UserBuilder.class
+com\shoppy\backend\repository\ShippingCompanyRepository.class
+com\shoppy\backend\common\exception\ErrorCode.class
+com\shoppy\backend\entity\BaseEntity.class
+com\shoppy\backend\common\exception\AppException.class
+com\shoppy\backend\common\dto\ApiResponse$ApiResponseBuilder.class
+com\shoppy\backend\config\SecurityConfig.class
