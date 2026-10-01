@@ -1,6 +1,7 @@
 # Stage 1: Build file JAR bằng Maven
 FROM maven:3.9.6-eclipse-temurin-17 AS build
 WORKDIR /app
+ENV JAVA_TOOL_OPTIONS="-Dfile.encoding=UTF-8"
 COPY pom.xml .
 COPY src ./src
 RUN mvn clean package -DskipTests
