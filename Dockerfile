@@ -1,17 +1,17 @@
-# Stage 1: Build file JAR bằng Maven
+# Stage 1: Build JAR with Maven
 FROM maven:3.9.6-eclipse-temurin-17 AS build
 WORKDIR /app
-ENV JAVA_TOOL_OPTIONS="-Dfile.encoding=UTF-8"
 COPY pom.xml .
 COPY src ./src
-RUN mvn clean package -DskipTests
 
-# Stage 2: Chạy ứng dụng bằng Java 17 JRE nhỏ gọn
+# Ép Maven dùng encoding UTF-8 khi đọc file resources
+RUN mvn clean package -DskipTests -Dfile.encoding=UTF-8
+
+# Stage 2: Run application
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
 
-# Render sẽ tự động cấp phát cổng ngẫu nhiên qua biến $PORT
 EXPOSE 8080
 
 ENTRYPOINT ["java", "-jar", "app.jar"]
