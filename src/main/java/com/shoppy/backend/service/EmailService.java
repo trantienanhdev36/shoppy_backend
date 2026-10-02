@@ -16,11 +16,11 @@ public class EmailService {
 
     private final JavaMailSender mailSender;
 
-    @Value("${app.mail.from}")
+    @Value("${app.mail.from:noreply@shoppy.com}")
     private String fromEmail;
 
-    // Tự động lấy URL chuẩn theo từng môi trường
-    @Value("${app.base-url}")
+    //  Bổ sung fallback :http://localhost:8080
+    @Value("${app.base-url:http://localhost:8080}")
     private String baseUrl;
     @Async
     public void sendVerificationEmail(String toEmail, String fullName, String token) {
