@@ -1,0 +1,14 @@
+services:
+  # Chỉ chạy mỗi Backend
+  shoppy-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: shoppy-backend-app
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      # Dùng host.docker.internal để kết nối tới cổng 5432 trên máy chủ (nơi postgres_shopp đang lắng nghe)
+      SPRING_DATASOURCE_URL: jdbc:postgresql://host.docker.internal:5432/shoppy_db?options=-c%20timezone=Asia/Ho_Chi_Minh

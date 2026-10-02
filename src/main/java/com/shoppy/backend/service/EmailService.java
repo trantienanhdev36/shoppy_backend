@@ -1,8 +1,9 @@
 package com.shoppy.backend.service;
 
-import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
@@ -10,29 +11,40 @@ import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class EmailService {
 
     private final JavaMailSender mailSender;
 
-    @Async // Gửi mail bất đồng bộ để tránh làm chậm Response đăng ký
-    public void sendVerificationEmail(String toEmail, String fullName, String activationLink) {
+    @Value("${app.mail.from}")
+    private String fromEmail;
+
+    // Tự động lấy URL chuẩn theo từng môi trường
+    @Value("${app.base-url}")
+    private String baseUrl;
+    @Async
+    public void sendVerificationEmail(String toEmail, String fullName, String token) {
         try {
+            //  Nối baseUrl động từ .env / Render với Route của Controller
+            String activationLink = baseUrl + "/auth/verify?token=" + token;
+
+            log.info("LINK XÁC THỰC HOÀN CHỈNH: {}", activationLink);
+
             MimeMessage mimeMessage = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
 
+            helper.setFrom(fromEmail, "Shoppy Team");
             helper.setTo(toEmail);
-            helper.setSubject("Xác thực tài khoản Shoppy của bạn");
+            helper.setSubject("Xác thực tài khoản Shoppy");
 
             String htmlContent = "<h3>Xin chào " + fullName + ",</h3>"
-                    + "<p>Cảm ơn bạn đã đăng ký tài khoản tại Shoppy.</p>"
-                    + "<p>Vui lòng nhấp vào đường link bên dưới để kích hoạt tài khoản của bạn (đường link có hiệu lực trong 24h):</p>"
-                    + "<p><a href=\"" + activationLink + "\">KÍCH HOẠT TÀI KHOẢN NGAY</a></p>"
-                    + "<br><p>Trân trọng,<br>Shoppy Team</p>";
+                    + "<p>Vui lòng nhấp vào đường link bên dưới để kích hoạt tài khoản:</p>"
+                    + "<p><a href=\"" + activationLink + "\" data-brevo-click-tracking=\"false\">KÍCH HOẠT TÀI KHOẢN NGAY</a></p>";
 
             helper.setText(htmlContent, true);
             mailSender.send(mimeMessage);
-        } catch (MessagingException e) {
-            throw new RuntimeException("Không thể gửi email xác thực: " + e.getMessage());
+        } catch (Exception e) {
+            log.error("Lỗi gửi email: {}", e.getMessage());
         }
     }
 }

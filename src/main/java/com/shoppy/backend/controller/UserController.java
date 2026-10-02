@@ -30,9 +30,5 @@ public class UserController {
                 .body(ApiResponse.success("Đăng ký thành công! Vui lòng kiểm tra email để kích hoạt tài khoản.", registeredUser));
     }
 
-    @GetMapping("/verify-email")
-    public ResponseEntity<ApiResponse<String>> verifyEmail(@RequestParam("token") String token) {
-        userService.verifyEmail(token);
-        return ResponseEntity.ok(ApiResponse.success("Xác thực email thành công! Bạn có thể đăng nhập ngay.", null));
-    }
+
 }

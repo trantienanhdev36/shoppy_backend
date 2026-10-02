@@ -23,7 +23,7 @@ public class SecurityConfig {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/user/register").permitAll()
+                        .requestMatchers("/user/register","/auth/login","/auth/verify").permitAll()
                         .anyRequest().permitAll() // Cho phép test tất cả API ở giai đoạn dev
                 );
         return http.build();

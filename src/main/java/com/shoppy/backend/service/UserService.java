@@ -88,30 +88,9 @@ public class UserService {
                 .build();
         tokenRepository.save(verificationToken);
 
-        String activationLink = "http://localhost:8080/api/v1/user/verify-email?token=" + token;
-        emailService.sendVerificationEmail(savedUser.getEmail(), savedUser.getFullName(), activationLink);
-
+// CHỈ TRUYỀN TOKEN THÔ, KHÔNG NỐI URL Ở ĐÂY
+        emailService.sendVerificationEmail(savedUser.getEmail(), savedUser.getFullName(), token);
         return savedUser;
     }
 
-    @Transactional
-    public void verifyEmail(String token) {
-        // 1. Tìm token trong DB (Bắt lỗi bằng AppException)
-        VerificationToken verificationToken = tokenRepository.findByToken(token)
-                .orElseThrow(() -> new AppException(ErrorCode.INVALID_TOKEN));
-
-        // 2. Kiểm tra hết hạn
-        if (verificationToken.getExpiryDate().isBefore(LocalDateTime.now())) {
-            tokenRepository.delete(verificationToken);
-            throw new AppException(ErrorCode.EXPIRED_TOKEN);
-        }
-
-        // 3. Kích hoạt tài khoản
-        User user = verificationToken.getUser();
-        user.setStatus(UserStatus.ACTIVE);
-        userRepository.save(user);
-
-        // 4. Xóa token sau khi dùng thành công
-        tokenRepository.delete(verificationToken);
-    }
 }
