@@ -44,15 +44,26 @@ public class SecurityConfig {
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
-                // 2. Phân quyền Endpoint
+                // 2. Phân quyền Endpoint theo Role và đường dẫn
                 .authorizeHttpRequests(auth -> auth
                         // Cho phép truy cập tự do không cần token
                         .requestMatchers("/user/register", "/auth/login", "/auth/verify").permitAll()
-                        // Các API khác trong /users/ vẫn cần đăng nhập
+
+                        // Phân quyền dành riêng cho Admin
+                        .requestMatchers("/admin/**").hasAuthority("ADMIN")
+
+                        // Phân quyền cho Seller / Quản lý Shop
+                        .requestMatchers("/shops/**")
+                        //.authenticated()
+                        .hasAnyAuthority("SELLER")
+
+                        // Các API cá nhân của người dùng (/user/profile, /user/shops/register, ...) yêu cầu đã đăng nhập
                         .requestMatchers("/users/**").authenticated()
+
+                        // Tất cả các request còn lại bắt buộc phải xác thực
                         .anyRequest().authenticated()
                 )
-                // 3.BẮT BUỘC: Thêm JWT Filter trước Filter xác thực mặc định của Spring
+                // 3. BẮT BUỘC: Thêm JWT Filter trước Filter xác thực mặc định của Spring
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

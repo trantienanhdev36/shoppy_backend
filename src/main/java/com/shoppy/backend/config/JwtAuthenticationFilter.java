@@ -60,6 +60,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 // 5. Validate Token
                 if (jwtUtils.isTokenValid(jwt, userDetails)) {
+                    System.out.println(">>> JWT HỢP LỆ CHO USER: " + userEmail);
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                             userDetails,
                             null,
