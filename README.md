@@ -1,181 +1,65 @@
+<div align="center">
+
+# 🛒 Shopee Backend API
+
+*Hệ thống Backend thương mại điện tử được xây dựng dựa trên mô hình Spring Boot, phục vụ các tính năng cốt lõi của một sàn thương mại điện tử.*
+
+[![Java](https://img.shields.io/badge/Java-17-%23ED8B00?style=flat&logo=openjdk&logoColor=white)](https://www.oracle.com/java/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.x-%236DB33F?style=flat&logo=spring&logoColor=white)](https://spring.io/projects/spring-boot)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-%234169E1?style=flat&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Docker](https://img.shields.io/badge/Docker-Compose-%232496ED?style=flat&logo=docker&logoColor=white)](https://www.docker.com/)
+
+</div>
+
+---
+
+## 🚀 Giới thiệu dự án
+Dự án **Shopee Backend** mô phỏng lại hệ thống backend của một sàn thương mại điện tử. Hệ thống hỗ trợ phân quyền người dùng (Customer, Seller, Shipper, Admin), quản lý giỏ hàng, đặt hàng, theo dõi hành trình vận chuyển và tích hợp lưu trữ ảnh qua Cloudinary.
+
+---
+
+## 🛠️ Công nghệ sử dụng
+* **Language & Framework:** Java 17, Spring Boot 3
+* **Security & Auth:** Spring Security, JWT (JSON Web Token)
+* **Database & ORM:** PostgreSQL 16, Spring Data JPA, Flyway / Hibernate
+* **Containerization:** Docker & Docker Compose
+* **Cloud Services:** Cloudinary (Lưu trữ hình ảnh CDN)
+* **Documentation:** OpenAPI / Swagger UI
+
+---
+
+## 📂 Cấu trúc thư mục dự án
+
+Cấu trúc mã nguồn tuân theo kiến trúc phân tầng (Layered Architecture) chuẩn của Spring Boot:
+
+<details>
+<summary><b>🔍 Xem chi tiết cấu trúc thư mục (Click để mở rộng)</b></summary>
+
+```text
 shopee-backend/
 ├── .github/
-│   └── workflows/                # CI/CD Pipeline
+│   └── workflows/              # CI/CD Pipeline
 ├── docker/
 │   ├── postgres/
-│   │   └── init.sql              # Script khởi tạo database nếu cần
-│   └── docker-compose.yml        # PostgreSQL 16 container setup
+│   │   └── init.sql            # Script khởi tạo database
+│   └── docker-compose.yml      # Cấu hình container PostgreSQL 16
 ├── src/
 │   ├── main/
-│   │   ├── java/
-│   │   │   └── com/
-│   │   │       └── shopee/
-│   │   │           └── backend/
-│   │   │               ├── ShopeeBackendApplication.java
-│   │   │               │
-│   │   │               ├── config/                         # Cấu hình Spring Beans
-│   │   │               │   ├── SecurityConfig.java         # Spring Security & JWT Filter Chain
-│   │   │               │   ├── JwtAuthenticationFilter.java# Filter xác thực JWT token
-│   │   │               │   ├── CloudinaryConfig.java       # Kết nối Cloudinary CDN
-│   │   │               │   ├── JpaAuditingConfig.java      # Tự động gán created_at, updated_at
-│   │   │               │   └── SwaggerConfig.java          # OpenAPI / Swagger UI
-│   │   │               │
-│   │   │               ├── common/                         # Dùng chung toàn hệ thống
-│   │   │               │   ├── annotation/                 # Custom Annotations (vd: @ValidEnum)
-│   │   │               │   ├── dto/
-│   │   │               │   │   ├── ApiResponse.java        # Standardized Response Wrapper <T>
-│   │   │               │   │   └── PageResponse.java       # Response phân trang (wrapper cho List<Entity>)
-│   │   │               │   ├── enums/                      # Toàn bộ Enums
-│   │   │               │   │   ├── UserRole.java           # ROLE_CUSTOMER, ROLE_SELLER, ROLE_SHIPPER, ROLE_ADMIN
-│   │   │               │   │   ├── UserStatus.java         # ACTIVE, INACTIVE, BLOCKED
-│   │   │               │   │   ├── OrderStatus.java        # PENDING, PROCESSING, READY_TO_SHIP...
-│   │   │               │   │   ├── TrackingStatus.java     # PICKED_UP, IN_TRANSIT, DELIVERED...
-│   │   │               │   │   ├── TransactionStatus.java  # PENDING, COMPLETED, FAILED, CANCELLED
-│   │   │               │   │   └── PaymentMethod.java      # WALLET
-│   │   │               │   ├── exception/
-│   │   │               │   │   ├── AppException.java       # Custom Exception
-│   │   │               │   │   ├── ErrorCode.java          # Enum quản lý mã lỗi & message
-│   │   │               │   │   └── GlobalExceptionHandler.java # @ControllerAdvice xử lý lỗi tập trung
-│   │   │               │   └── util/
-│   │   │               │       ├── JwtUtils.java           # Xử lý Token JWT
-│   │   │               │       └── SecurityUtils.java      # Lấy current user ID từ SecurityContext
-│   │   │               │
-│   │   │               ├── controller/                     # TẦNG CONTROLLER (Trả về ApiResponse<Entity>)
-│   │   │               │   ├── AuthController.java         # /api/v1/auth
-│   │   │               │   ├── UserController.java         # Quản lý thông tin user
-│   │   │               │   ├── UserAddressController.java  # Quản lý địa chỉ
-│   │   │               │   ├── ShopController.java         # Quản lý gian hàng
-│   │   │               │   ├── CategoryController.java     # Quản lý danh mục
-│   │   │               │   ├── ProductController.java      # Quản lý sản phẩm & biến thể
-│   │   │               │   ├── DiscountController.java     # Mã giảm giá
-│   │   │               │   ├── ProductRatingController.java# Đánh giá sản phẩm
-│   │   │               │   ├── CartController.java         # Giỏ hàng
-│   │   │               │   ├── OrderController.java        # Đơn hàng
-│   │   │               │   ├── OrderTrackingController.java# Theo dõi hành trình giao hàng
-│   │   │               │   ├── ShippingCompanyController.java # Hãng vận chuyển
-│   │   │               │   ├── WalletController.java       # Ví tiền, Nạp/Rút, Payout
-│   │   │               │   ├── NotificationController.java # Thông báo
-│   │   │               │   └── MediaController.java        # Upload ảnh
-│   │   │               │
-│   │   │               ├── service/                        # TẦNG SERVICE (Logic nghiệp vụ)
-│   │   │               │   ├── AuthService.java
-│   │   │               │   ├── UserService.java
-│   │   │               │   ├── UserAddressService.java
-│   │   │               │   ├── ShopService.java
-│   │   │               │   ├── CategoryService.java
-│   │   │               │   ├── ProductService.java
-│   │   │               │   ├── DiscountService.java
-│   │   │               │   ├── ProductRatingService.java
-│   │   │               │   ├── CartService.java
-│   │   │               │   ├── OrderService.java
-│   │   │               │   ├── OrderTrackingService.java
-│   │   │               │   ├── ShippingCompanyService.java
-│   │   │               │   ├── WalletService.java
-│   │   │               │   ├── NotificationService.java
-│   │   │               │   └── CloudinaryService.java
-│   │   │               │
-│   │   │               ├── repository/                     # TẦNG REPOSITORY (Thao tác CSDL)
-│   │   │               │   ├── UserRepository.java
-│   │   │               │   ├── UserAddressRepository.java
-│   │   │               │   ├── VerificationTokenRepository.java
-│   │   │               │   ├── PasswordResetTokenRepository.java
-│   │   │               │   ├── ShopRepository.java
-│   │   │               │   ├── CategoryRepository.java
-│   │   │               │   ├── ProductRepository.java
-│   │   │               │   ├── ProductVariantRepository.java
-│   │   │               │   ├── DiscountRepository.java
-│   │   │               │   ├── ProductRatingRepository.java
-│   │   │               │   ├── CartRepository.java
-│   │   │               │   ├── CartItemRepository.java
-│   │   │               │   ├── OrderRepository.java
-│   │   │               │   ├── OrderItemRepository.java
-│   │   │               │   ├── OrderTrackingRepository.java
-│   │   │               │   ├── ShippingCompanyRepository.java
-│   │   │               │   ├── WalletDepositRepository.java
-│   │   │               │   ├── WalletWithdrawalRepository.java
-│   │   │               │   ├── PayoutRepository.java
-│   │   │               │   └── NotificationRepository.java
-│   │   │               │
-│   │   │               ├── entity/                         # TẦNG ENTITY (Tích hợp Jackson Annotations)
-│   │   │               │   ├── BaseEntity.java             # Cấu hình @JsonIgnore cho isDeleted, deletedAt
-│   │   │               │   ├── User.java                   # Cấu hình @JsonProperty(WRITE_ONLY) cho password
-│   │   │               │   ├── UserAddress.java
-│   │   │               │   ├── VerificationToken.java
-│   │   │               │   ├── PasswordResetToken.java
-│   │   │               │   ├── Shop.java
-│   │   │               │   ├── Category.java
-│   │   │               │   ├── Product.java                # Bổ sung @JsonIgnoreProperties hoặc @JsonIgnore
-│   │   │               │   ├── ProductVariant.java
-│   │   │               │   ├── Discount.java
-│   │   │               │   ├── ProductRating.java
-│   │   │               │   ├── Cart.java
-│   │   │               │   ├── CartItem.java
-│   │   │               │   ├── Order.java
-│   │   │               │   ├── OrderItem.java
-│   │   │               │   ├── OrderTracking.java
-│   │   │               │   ├── ShippingCompany.java
-│   │   │               │   ├── WalletDeposit.java
-│   │   │               │   ├── WalletWithdrawal.java
-│   │   │               │   ├── Payout.java
-│   │   │               │   └── Notification.java
-│   │   │               │
-│   │   │               └── domain/                         # TẦNG DOMAIN (Chứa Request & Response DTO)
-│   │   │                   ├── request/
-│   │   │                   │   ├── auth/
-│   │   │                   │   │   ├── RegisterRequest.java
-│   │   │                   │   │   └── LoginRequest.java
-│   │   │                   │   ├── user/
-│   │   │                   │   │   ├── UserUpdateRequest.java
-│   │   │                   │   │   └── AddressRequest.java
-│   │   │                   │   ├── shop/
-│   │   │                   │   │   ├── ShopCreateRequest.java
-│   │   │                   │   │   └── ShopUpdateRequest.java
-│   │   │                   │   ├── product/
-│   │   │                   │   │   ├── ProductCreateRequest.java
-│   │   │                   │   │   ├── VariantRequest.java
-│   │   │                   │   │   ├── DiscountRequest.java
-│   │   │                   │   │   └── RatingRequest.java
-│   │   │                   │   ├── cart/
-│   │   │                   │   │   ├── AddToCartRequest.java
-│   │   │                   │   │   └── UpdateCartItemRequest.java
-│   │   │                   │   ├── order/
-│   │   │                   │   │   ├── CreateOrderRequest.java
-│   │   │                   │   │   └── UpdateOrderStatusRequest.java
-│   │   │                   │   ├── shipping/
-│   │   │                   │   │   └── ShippingCompanyRequest.java
-│   │   │                   │   └── wallet/
-│   │   │                   │       ├── DepositRequest.java
-│   │   │                   │       └── WithdrawRequest.java
-│   │   │                   │
-│   │   │                   └── response/                       # Thêm thư mục chứa các Response DTO tương ứng
-│   │   │                       ├── auth/
-│   │   │                       ├── user/
-│   │   │                       ├── shop/
-│   │   │                       ├── product/
-│   │   │                       ├── cart/
-│   │   │                       ├── order/
-│   │   │                       ├── shipping/
-│   │   │                       └── wallet/
-│   │   │
+│   │   ├── java/com/shopee/backend/
+│   │   │   ├── ShopeeBackendApplication.java
+│   │   │   ├── config/         # Cấu hình Spring Beans (Security, JWT, Swagger, Cloudinary...)
+│   │   │   ├── common/         # Tiện ích chung, Enums, Exception Handler, ApiResponse
+│   │   │   ├── controller/     # Tầng tiếp nhận HTTP Request & trả về Response
+│   │   │   ├── service/        # Tầng xử lý logic nghiệp vụ chính
+│   │   │   ├── repository/     # Tầng thao tác cơ sở dữ liệu (Spring Data JPA)
+│   │   │   ├── entity/         # Định nghĩa các bảng Database & Jackson Annotations
+│   │   │   └── domain/         # Chứa các Request & Response DTO phân theo module
 │   │   └── resources/
-│   │       ├── application.yml             # Cấu hình DB, Cloudinary, JWT
+│   │       ├── application.yml # Cấu hình chung hệ thống
 │   │       ├── application-dev.yml
 │   │       ├── application-prod.yml
-│   │       └── db/
-│   │           └── migration/
-│   │               └── V1__init_schema.sql
-│   │
-│   └── test/
-│       └── java/
-│           └── com/
-│               └── shopee/
-│                   └── backend/
-│                       ├── controller/
-│                       │   └── AuthControllerTest.java
-│                       └── service/
-│                           ├── AuthServiceTest.java
-│                           └── OrderServiceTest.java
-│
+│   │       └── db/migration/   # Flyway migration scripts (V1__init_schema.sql)
+│   └── test/                   # Unit & Integration Tests
 ├── .gitignore
 ├── pom.xml
 └── README.md
