@@ -55,7 +55,7 @@ public class SecurityConfig {
                         // Phân quyền cho Seller / Quản lý Shop
                         .requestMatchers("/shops/**")
                         //.authenticated()
-                        .hasAnyAuthority("SELLER")
+                        .hasRole("SELLER")
 
                         // Các API cá nhân của người dùng (/user/profile, /user/shops/register, ...) yêu cầu đã đăng nhập
                         .requestMatchers("/users/**").authenticated()
