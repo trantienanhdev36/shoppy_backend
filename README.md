@@ -37,8 +37,8 @@ shopee-backend/
 │   │   │               │   │   ├── ErrorCode.java          # Enum quản lý mã lỗi & message
 │   │   │               │   │   └── GlobalExceptionHandler.java # @ControllerAdvice xử lý lỗi tập trung
 │   │   │               │   └── util/
-│   │   │                   ├── JwtUtils.java               # Xử lý Token JWT
-│   │   │                   └── SecurityUtils.java          # Lấy current user ID từ SecurityContext
+│   │   │               │       ├── JwtUtils.java           # Xử lý Token JWT
+│   │   │               │       └── SecurityUtils.java      # Lấy current user ID từ SecurityContext
 │   │   │               │
 │   │   │               ├── controller/                     # TẦNG CONTROLLER (Trả về ApiResponse<Entity>)
 │   │   │               │   ├── AuthController.java         # /api/v1/auth
@@ -57,7 +57,7 @@ shopee-backend/
 │   │   │               │   ├── NotificationController.java # Thông báo
 │   │   │               │   └── MediaController.java        # Upload ảnh
 │   │   │               │
-│   │   │               ├── service/                        # TẦNG SERVICE (Logic nghiệp vụ, trả về Entity)
+│   │   │               ├── service/                        # TẦNG SERVICE (Logic nghiệp vụ)
 │   │   │               │   ├── AuthService.java
 │   │   │               │   ├── UserService.java
 │   │   │               │   ├── UserAddressService.java
@@ -119,32 +119,43 @@ shopee-backend/
 │   │   │               │   ├── Payout.java
 │   │   │               │   └── Notification.java
 │   │   │               │
-│   │   │               └── dto/                            # TẦNG DTO (Chỉ chứa REQUEST)
-│   │   │                   ├── auth/
-│   │   │                   │   ├── RegisterRequest.java
-│   │   │                   │   └── LoginRequest.java
-│   │   │                   ├── user/
-│   │   │                   │   ├── UserUpdateRequest.java
-│   │   │                   │   └── AddressRequest.java
-│   │   │                   ├── shop/
-│   │   │                   │   ├── ShopCreateRequest.java
-│   │   │                   │   └── ShopUpdateRequest.java
-│   │   │                   ├── product/
-│   │   │                   │   ├── ProductCreateRequest.java
-│   │   │                   │   ├── VariantRequest.java
-│   │   │                   │   ├── DiscountRequest.java
-│   │   │                   │   └── RatingRequest.java
-│   │   │                   ├── cart/
-│   │   │                   │   ├── AddToCartRequest.java
-│   │   │                   │   └── UpdateCartItemRequest.java
-│   │   │                   ├── order/
-│   │   │                   │   ├── CreateOrderRequest.java
-│   │   │                   │   └── UpdateOrderStatusRequest.java
-│   │   │                   ├── shipping/
-│   │   │                   │   └── ShippingCompanyRequest.java
-│   │   │                   └── wallet/
-│   │   │                       ├── DepositRequest.java
-│   │   │                       └── WithdrawRequest.java
+│   │   │               └── domain/                         # TẦNG DOMAIN (Chứa Request & Response DTO)
+│   │   │                   ├── request/
+│   │   │                   │   ├── auth/
+│   │   │                   │   │   ├── RegisterRequest.java
+│   │   │                   │   │   └── LoginRequest.java
+│   │   │                   │   ├── user/
+│   │   │                   │   │   ├── UserUpdateRequest.java
+│   │   │                   │   │   └── AddressRequest.java
+│   │   │                   │   ├── shop/
+│   │   │                   │   │   ├── ShopCreateRequest.java
+│   │   │                   │   │   └── ShopUpdateRequest.java
+│   │   │                   │   ├── product/
+│   │   │                   │   │   ├── ProductCreateRequest.java
+│   │   │                   │   │   ├── VariantRequest.java
+│   │   │                   │   │   ├── DiscountRequest.java
+│   │   │                   │   │   └── RatingRequest.java
+│   │   │                   │   ├── cart/
+│   │   │                   │   │   ├── AddToCartRequest.java
+│   │   │                   │   │   └── UpdateCartItemRequest.java
+│   │   │                   │   ├── order/
+│   │   │                   │   │   ├── CreateOrderRequest.java
+│   │   │                   │   │   └── UpdateOrderStatusRequest.java
+│   │   │                   │   ├── shipping/
+│   │   │                   │   │   └── ShippingCompanyRequest.java
+│   │   │                   │   └── wallet/
+│   │   │                   │       ├── DepositRequest.java
+│   │   │                   │       └── WithdrawRequest.java
+│   │   │                   │
+│   │   │                   └── response/                       # Thêm thư mục chứa các Response DTO tương ứng
+│   │   │                       ├── auth/
+│   │   │                       ├── user/
+│   │   │                       ├── shop/
+│   │   │                       ├── product/
+│   │   │                       ├── cart/
+│   │   │                       ├── order/
+│   │   │                       ├── shipping/
+│   │   │                       └── wallet/
 │   │   │
 │   │   └── resources/
 │   │       ├── application.yml             # Cấu hình DB, Cloudinary, JWT

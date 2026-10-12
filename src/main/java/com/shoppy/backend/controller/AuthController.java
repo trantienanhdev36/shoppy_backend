@@ -1,8 +1,8 @@
 package com.shoppy.backend.controller;
 
 import com.shoppy.backend.common.dto.ApiResponse;
-import com.shoppy.backend.dto.auth.AuthResponse;
-import com.shoppy.backend.dto.auth.LoginRequest;
+import com.shoppy.backend.domain.response.auth.AuthResponse;
+import com.shoppy.backend.domain.request.auth.LoginRequest;
 import com.shoppy.backend.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

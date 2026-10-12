@@ -4,7 +4,7 @@ import com.shoppy.backend.common.enums.UserRole;
 import com.shoppy.backend.common.enums.UserStatus;
 import com.shoppy.backend.common.exception.AppException;
 import com.shoppy.backend.common.exception.ErrorCode;
-import com.shoppy.backend.dto.user.RegisterRequest;
+import com.shoppy.backend.domain.request.user.RegisterRequest;
 import com.shoppy.backend.entity.ShippingCompany;
 import com.shoppy.backend.entity.User;
 import com.shoppy.backend.entity.VerificationToken;
@@ -91,6 +91,13 @@ public class UserService {
 // CHỈ TRUYỀN TOKEN THÔ, KHÔNG NỐI URL Ở ĐÂY
         emailService.sendVerificationEmail(savedUser.getEmail(), savedUser.getFullName(), token);
         return savedUser;
+    }
+
+
+    public User getUserByEmail(String email) {
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng với email: " + email));
+        // Lưu ý: Nếu dự án có Custom Exception (ví dụ ResourceNotFoundException), hãy dùng thay cho RuntimeException
     }
 
 }

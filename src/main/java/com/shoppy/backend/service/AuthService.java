@@ -4,9 +4,9 @@ import com.shoppy.backend.common.enums.UserStatus;
 import com.shoppy.backend.common.exception.AppException;
 import com.shoppy.backend.common.exception.ErrorCode;
 import com.shoppy.backend.common.util.JwtUtils;
-import com.shoppy.backend.dto.auth.AuthResponse;
-import com.shoppy.backend.dto.auth.LoginRequest;
-import com.shoppy.backend.dto.user.UserResponse;
+import com.shoppy.backend.domain.response.auth.AuthResponse;
+import com.shoppy.backend.domain.request.auth.LoginRequest;
+import com.shoppy.backend.domain.response.user.UserResponse;
 import com.shoppy.backend.entity.User;
 import com.shoppy.backend.entity.VerificationToken;
 import com.shoppy.backend.repository.UserRepository;
@@ -18,8 +18,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
