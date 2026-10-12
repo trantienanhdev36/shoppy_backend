@@ -10,8 +10,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -22,7 +21,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @RequiredArgsConstructor
 public class SecurityConfig {
     private final UserRepository userRepository;
-    private final JwtAuthenticationFilter jwtAuthFilter; //  Inject JWT Filter của bạn vào đây
+    private final JwtAuthenticationFilter jwtAuthFilter;
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
@@ -47,7 +46,9 @@ public class SecurityConfig {
                 // 2. Phân quyền Endpoint theo Role và đường dẫn
                 .authorizeHttpRequests(auth -> auth
                         // Cho phép truy cập tự do không cần token
-                        .requestMatchers("/user/register", "/auth/login", "/auth/verify").permitAll()
+                        .requestMatchers("/user/register", "/auth/login", "/products/raw", "/auth/verify").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/products/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/products/**").hasRole("SELLER")
 
                         // Phân quyền dành riêng cho Admin
                         .requestMatchers("/admin/**").hasAuthority("ADMIN")
@@ -59,7 +60,6 @@ public class SecurityConfig {
 
                         // Các API cá nhân của người dùng (/user/profile, /user/shops/register, ...) yêu cầu đã đăng nhập
                         .requestMatchers("/users/**").authenticated()
-
                         // Tất cả các request còn lại bắt buộc phải xác thực
                         .anyRequest().authenticated()
                 )

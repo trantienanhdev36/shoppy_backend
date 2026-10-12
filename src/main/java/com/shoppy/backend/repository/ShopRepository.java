@@ -15,4 +15,5 @@ public interface ShopRepository extends JpaRepository<Shop, Long> {
 
     // Tìm thông tin Shop theo userId
     Optional<Shop> findByUserIdAndIsDeletedFalse(Long userId);
+    Optional<Shop> findByUserId(Long userId);
 }

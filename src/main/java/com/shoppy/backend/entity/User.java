@@ -51,13 +51,13 @@ public class User extends BaseEntity {
     @Column(name = "avatar_url")
     private String avatarUrl;
 
-    // 🔗 2. Tránh lỗi LazyInitializationException & Lặp vô tận khi serialize JSON
+    // 2. Tránh lỗi LazyInitializationException & Lặp vô tận khi serialize JSON
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "shipping_company_id")
     @JsonIgnore
     private ShippingCompany shippingCompany;
 
-    // ⚡ 3. Getter ảo: Tự động bổ sung trường shippingCompanyId vào JSON trả về cho App
+    //  3. Getter ảo: Tự động bổ sung trường shippingCompanyId vào JSON trả về cho App
     @JsonProperty("shippingCompanyId")
     public Long getShippingCompanyId() {
         return shippingCompany != null ? shippingCompany.getId() : null;
