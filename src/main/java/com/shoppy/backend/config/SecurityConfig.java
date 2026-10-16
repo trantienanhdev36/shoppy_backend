@@ -27,9 +27,10 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
+    // Khai báo static để Spring Security 6+ auto-detect trước khi khởi tạo filter chain
     @Bean
-    public RoleHierarchy roleHierarchy() {
-        // Cấu hình: ADMIN > SELLER > CUSTOMER
+    public static RoleHierarchy roleHierarchy() {
+        // ADMIN > SELLER > CUSTOMER, SHIPPER là role độc lập
         return RoleHierarchyImpl.withDefaultRolePrefix()
                 .role("ADMIN").implies("SELLER")
                 .role("SELLER").implies("CUSTOMER")
@@ -46,20 +47,34 @@ public class SecurityConfig {
                 // 2. Phân quyền Endpoint theo Role và đường dẫn
                 .authorizeHttpRequests(auth -> auth
                         // Cho phép truy cập tự do không cần token
-                        .requestMatchers("/user/register", "/auth/login", "/products/raw", "/auth/verify").permitAll()
+                        .requestMatchers("/users/register", "/auth/login", "/products/raw", "/auth/verify").permitAll()
                         .requestMatchers(HttpMethod.GET, "/products/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/products/**").hasRole("SELLER")
 
                         // Phân quyền dành riêng cho Admin
-                        .requestMatchers("/admin/**").hasAuthority("ADMIN")
+                        .requestMatchers("/admin/**").hasRole("ADMIN")
 
                         // Phân quyền cho Seller / Quản lý Shop
-                        .requestMatchers("/shops/**")
-                        //.authenticated()
-                        .hasRole("SELLER")
+                        .requestMatchers("/shops/**").hasRole("SELLER")
 
-                        // Các API cá nhân của người dùng (/user/profile, /user/shops/register, ...) yêu cầu đã đăng nhập
+                        // ── ORDER ENDPOINTS ────────────────────────────────
+                        // Mọi user đã đăng nhập đều có thể đặt & xem đơn hàng
+                        .requestMatchers(HttpMethod.POST, "/orders").authenticated()
+                        .requestMatchers(HttpMethod.GET,  "/orders/my").authenticated()
+                        .requestMatchers(HttpMethod.GET,  "/orders/{id}").authenticated()
+
+                        // SELLER / ADMIN: Quản lý đơn hàng
+                        .requestMatchers(HttpMethod.GET, "/orders/manage").hasRole("SELLER")
+                        .requestMatchers(HttpMethod.PUT, "/orders/*/ready-to-ship").hasRole("SELLER")
+
+                        // SHIPPER: Nhận đơn, giao hàng, xem danh sách giao
+                        .requestMatchers(HttpMethod.PUT, "/orders/*/assign-shipper").hasRole("SHIPPER")
+                        .requestMatchers(HttpMethod.PUT, "/orders/*/delivered").hasRole("SHIPPER")
+                        .requestMatchers(HttpMethod.GET, "/orders/shipper/**").hasRole("SHIPPER")
+
+                        // Các API cá nhân của người dùng yêu cầu đã đăng nhập
                         .requestMatchers("/users/**").authenticated()
+
                         // Tất cả các request còn lại bắt buộc phải xác thực
                         .anyRequest().authenticated()
                 )

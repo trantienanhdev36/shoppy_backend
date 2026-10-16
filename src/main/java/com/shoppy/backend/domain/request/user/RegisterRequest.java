@@ -28,7 +28,7 @@ public class RegisterRequest {
     @Size(min = 6, max = 32, message = "Mật khẩu phải từ 6 đến 32 ký tự")
     private String password;
 
-    private UserRole role = UserRole.USER;
+    private UserRole role = UserRole.CUSTOMER;
 
     // Yêu cầu bắt buộc nếu role = ROLE_SHIPPER
     private Long shippingCompanyId;

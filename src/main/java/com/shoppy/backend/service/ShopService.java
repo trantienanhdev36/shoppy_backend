@@ -61,8 +61,8 @@ public class ShopService {
 
         Shop savedShop = shopRepository.save(shop);
 
-        // 5. Cập nhật Role của User thành SELLER (nếu đang là USER)
-        if (user.getRole() == UserRole.USER) {
+        // 5. Cập nhật Role của User thành SELLER (nếu đang là CUSTOMER)
+        if (user.getRole() == UserRole.CUSTOMER) {
             user.setRole(UserRole.SELLER);
             userRepository.save(user);
         }

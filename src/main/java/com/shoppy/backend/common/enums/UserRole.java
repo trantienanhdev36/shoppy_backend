@@ -2,7 +2,7 @@ package com.shoppy.backend.common.enums;
 
 public enum UserRole {
     ADMIN,
-    USER,
     SELLER,
-    STAFF
+    CUSTOMER,   // Khách hàng mua hàng
+    SHIPPER     // Người giao hàng
 }

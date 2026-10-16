@@ -47,7 +47,7 @@ public class UserService {
         }
 
         ShippingCompany shippingCompany = null;
-        if (request.getRole() == UserRole.STAFF) {
+        if (request.getRole() == UserRole.SHIPPER) {
             if (request.getShippingCompanyId() == null) {
                 throw new AppException(ErrorCode.SHIPPER_COMPANY_REQUIRED);
             }

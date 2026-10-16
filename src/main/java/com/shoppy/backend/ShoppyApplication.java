@@ -13,7 +13,6 @@ import java.util.TimeZone;
 public class ShoppyApplication {
 
     public static void main(String[] args) {
-        // Ép JVM dùng đúng ID múi giờ IANA chuẩn cho Việt Nam
         TimeZone.setDefault(TimeZone.getTimeZone("Asia/Ho_Chi_Minh"));
 
         SpringApplication.run(ShoppyApplication.class, args);
