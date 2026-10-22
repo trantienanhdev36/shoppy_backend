@@ -2,6 +2,7 @@ package com.shoppy.backend.common.enums;
 
 public enum OrderStatus {
     PENDING,        // Chờ xử lý (vừa tạo, chưa kiểm tra kho/thanh toán)
+    WAITING_FOR_PAYMENT, // Đã giữ tồn kho, chờ wallet queue xử lý thanh toán
     PROCESSING,     // Đang xử lý (đã xác nhận kho + thanh toán, shop chuẩn bị)
     READY_TO_SHIP,  // Sẵn sàng giao hàng (shop đóng gói xong)
     SHIPPING,       // Đang giao hàng (shipper đã nhận đơn)

@@ -12,8 +12,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Map;
 import java.util.List;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -109,6 +112,7 @@ public class ProductService {
         response.setName(product.getName());
         response.setDescription(product.getDescription());
         response.setHasVariants(product.isHasVariants());
+        setPriceRange(response, product.getVariants());
 
         // Map danh sách ảnh chung sang ProductImageDTO
         if (product.getImages() != null) {
@@ -127,6 +131,12 @@ public class ProductService {
     // Lấy tất cả sản phẩm gốc (Chỉ lấy thông tin sản phẩm và ảnh gốc, không trả về biến thể)
     public List<ProductResponseDTO> getAllProducts() {
         List<Product> products = productRepository.findAll();
+        Map<Long, ProductRepository.ProductPriceRange> priceRanges =
+                productRepository.findProductPriceRanges().stream()
+                        .collect(Collectors.toMap(
+                                ProductRepository.ProductPriceRange::getProductId,
+                                Function.identity()
+                        ));
 
         return products.stream().map(product -> {
             ProductResponseDTO dto = new ProductResponseDTO();
@@ -134,6 +144,11 @@ public class ProductService {
             dto.setName(product.getName());
             dto.setDescription(product.getDescription());
             dto.setHasVariants(product.isHasVariants());
+            ProductRepository.ProductPriceRange priceRange = priceRanges.get(product.getId());
+            if (priceRange != null) {
+                dto.setMinPrice(priceRange.getMinPrice());
+                dto.setMaxPrice(priceRange.getMaxPrice());
+            }
 
             // Map danh sách ảnh của sản phẩm gốc
             if (product.getImages() != null) {
@@ -147,6 +162,21 @@ public class ProductService {
             }
             return dto;
         }).collect(Collectors.toList());
+    }
+
+    private void setPriceRange(ProductResponseDTO response, List<ProductVariant> variants) {
+        if (variants == null || variants.isEmpty()) {
+            return;
+        }
+
+        response.setMinPrice(variants.stream()
+                .map(ProductVariant::getPrice)
+                .min(BigDecimal::compareTo)
+                .orElse(null));
+        response.setMaxPrice(variants.stream()
+                .map(ProductVariant::getPrice)
+                .max(BigDecimal::compareTo)
+                .orElse(null));
     }
 
     // Lấy chi tiết sản phẩm: Nếu có biến thể thì trả về danh sách biến thể, nếu không có thì trả về ảnh gốc

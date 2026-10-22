@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 /**
  * Worker chạy ngầm, quét Redis Queue mỗi 500ms để xử lý đơn hàng tuần tự.
  * Mỗi lần lấy ra 1 orderId → delegate xử lý cho OrderService.processOrder().
+ * Với thanh toán ví, đơn được đưa lại vào queue sau khi wallet queue trả kết quả.
  *
  * Ưu điểm của mô hình này:
  * - API phản hồi cực nhanh (chỉ push queue, không xử lý ngay)
@@ -35,16 +36,21 @@ public class OrderQueueWorker {
         String orderIdStr = redisTemplate.opsForList().leftPop(OrderService.ORDER_QUEUE_KEY);
 
         if (orderIdStr != null) {
+            redisTemplate.delete(OrderService.ORDER_QUEUE_KEY + ":queued:" + orderIdStr);
             Long orderId = Long.parseLong(orderIdStr);
             log.info("[OrderQueueWorker] Lấy orderId [{}] từ Redis Queue để xử lý...", orderId);
 
             try {
                 orderService.processOrder(orderId);
             } catch (Exception e) {
-                // Ghi log lỗi nhưng KHÔNG đẩy lại vào queue để tránh vòng lặp vô tận
-                // Đơn sẽ ở trạng thái PENDING hoặc CANCELLED tùy vào nơi lỗi xảy ra
-                log.error("[OrderQueueWorker] Lỗi khi xử lý orderId [{}]: {}", orderId, e.getMessage());
+                log.error("[OrderQueueWorker] Lỗi khi xử lý orderId [{}]; recovery sẽ thử lại", orderId, e);
             }
         }
+
+    }
+
+    @Scheduled(fixedDelay = 5000)
+    public void recoverOrders() {
+        orderService.requeueOrdersNeedingWork();
     }
 }

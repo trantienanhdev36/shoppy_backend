@@ -10,10 +10,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 @Service
 @RequiredArgsConstructor
@@ -31,6 +36,8 @@ public class OrderService {
     private final ProductVariantRepository productVariantRepository;
     private final UserRepository userRepository;
     private final ShippingCompanyRepository shippingCompanyRepository;
+    private final WalletTransactionRepository walletTransactionRepository;
+    private final WalletService walletService;
 
     // ── Redis ─────────────────────────────────────────────────────────────────
     private final StringRedisTemplate redisTemplate;
@@ -121,7 +128,7 @@ public class OrderService {
         addTracking(savedOrder, TrackingStatus.ORDER_PLACED, "Đơn hàng đã được đặt thành công", customer.getId());
 
         // 1.7 Đẩy orderId vào Redis Queue (RPUSH - xử lý theo thứ tự FIFO)
-        redisTemplate.opsForList().rightPush(ORDER_QUEUE_KEY, savedOrder.getId().toString());
+        enqueueOrderAfterCommit(savedOrder.getId());
         log.info("[OrderService] Đã đẩy orderId [{}] vào Redis Queue '{}'", savedOrder.getId(), ORDER_QUEUE_KEY);
 
         return OrderResponse.CreateOrderResponse.fromEntity(savedOrder);
@@ -133,12 +140,10 @@ public class OrderService {
 
     /**
      * Được gọi bởi OrderQueueWorker sau khi lấy orderId từ Redis Queue.
-     * Thực hiện trong một @Transactional để đảm bảo toàn vẹn dữ liệu.
-     * Bất kỳ lỗi nào → rollback toàn bộ.
+     * Mỗi lần gọi xử lý một giai đoạn; đơn thanh toán ví được tiếp tục sau khi wallet queue hoàn tất.
      */
     @Transactional
     public void processOrder(Long orderId) {
-        // 2.1 Lấy đơn hàng với PESSIMISTIC_WRITE lock
         Order order = orderRepository.findByIdWithLock(orderId)
                 .orElse(null);
 
@@ -147,39 +152,74 @@ public class OrderService {
             return;
         }
 
-        // Chỉ xử lý đơn ở trạng thái PENDING
+        if (order.getStatus() == OrderStatus.WAITING_FOR_PAYMENT) {
+            finishWalletPayment(order);
+            return;
+        }
+
         if (order.getStatus() != OrderStatus.PENDING) {
-            log.warn("[OrderWorker] orderId [{}] không ở trạng thái PENDING (hiện: {}), bỏ qua",
+            log.info("[OrderWorker] Bỏ qua orderId [{}], trạng thái hiện tại: {}",
                     orderId, order.getStatus());
             return;
         }
 
-        // 2.2 Tải danh sách items
         List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
 
-        // 2.3 Kiểm tra & trừ tồn kho (PESSIMISTIC_WRITE lock từng variant)
         boolean stockOk = checkAndDeductStock(order, items);
         if (!stockOk) {
-            // Thiếu kho → Hủy đơn (stock chưa bị trừ do exception/rollback)
             cancelOrder(order, "Hủy đơn: Một hoặc nhiều sản phẩm không đủ tồn kho");
             return;
         }
 
-        // 2.4 Xử lý thanh toán
-        boolean paymentOk = processPayment(order);
-        if (!paymentOk) {
-            // Thiếu tiền ví → Hủy đơn; kho đã trừ sẽ được rollback bởi @Transactional
-            cancelOrder(order, "Hủy đơn: Số dư ví không đủ để thanh toán");
-            throw new RuntimeException("Không đủ số dư ví - rollback tồn kho");
+        if (order.getPaymentMethod() == PaymentMethod.WALLET) {
+            order.setStatus(OrderStatus.WAITING_FOR_PAYMENT);
+            orderRepository.save(order);
+            BigDecimal grandTotal = order.getTotalAmount().add(order.getShippingFee());
+            walletService.createDebitRequest(order.getCustomerId(), order.getId(), grandTotal);
+            log.info("[OrderWorker] Đơn [{}] đã giữ tồn kho và chờ wallet queue thanh toán", orderId);
+            return;
         }
 
-        // 2.5 Chuyển trạng thái sang PROCESSING
+        completeOrderProcessing(order, false);
+    }
+
+    @Transactional(readOnly = true)
+    public void requeueOrdersNeedingWork() {
+        orderRepository.findByStatus(OrderStatus.PENDING)
+                .forEach(order -> enqueueOrderAfterCommit(order.getId()));
+
+        orderRepository.findByStatus(OrderStatus.WAITING_FOR_PAYMENT).forEach(order ->
+                walletTransactionRepository.findByOrderId(order.getId())
+                        .filter(transaction -> transaction.getStatus() != TransactionStatus.PENDING)
+                        .ifPresent(transaction -> enqueueOrderAfterCommit(order.getId())));
+    }
+
+    private void finishWalletPayment(Order order) {
+        WalletTransaction transaction = walletTransactionRepository.findByOrderId(order.getId())
+                .orElse(null);
+        if (transaction == null || transaction.getStatus() == TransactionStatus.PENDING) {
+            return;
+        }
+
+        if (transaction.getStatus() != TransactionStatus.COMPLETED) {
+            restoreStock(order, orderItemRepository.findByOrderId(order.getId()));
+            cancelOrder(order, "Hủy đơn: Giao dịch thanh toán ví thất bại");
+            return;
+        }
+
+        addTracking(order, TrackingStatus.PAYMENT_CONFIRMED,
+                String.format("Đã thanh toán %,.0f VND qua ví điện tử",
+                        transaction.getAmount().doubleValue()), null);
+        completeOrderProcessing(order, true);
+    }
+
+    private void completeOrderProcessing(Order order, boolean walletPayment) {
         order.setStatus(OrderStatus.PROCESSING);
         orderRepository.save(order);
         addTracking(order, TrackingStatus.PREPARING,
                 "Đơn hàng đã được xác nhận, shop đang chuẩn bị hàng", null);
-
-        log.info("[OrderWorker] Xử lý thành công orderId [{}] → PROCESSING", orderId);
+        log.info("[OrderWorker] Xử lý thành công orderId [{}] → PROCESSING (walletPayment={})",
+                order.getId(), walletPayment);
     }
 
     // ═════════════════════════════════════════════════════════════════════════
@@ -330,68 +370,85 @@ public class OrderService {
     // PRIVATE HELPERS
     // ═════════════════════════════════════════════════════════════════════════
 
-    /**
-     * Kiểm tra và trừ tồn kho với PESSIMISTIC_WRITE lock.
-     * @return true nếu tất cả sản phẩm đủ hàng và đã trừ thành công
-     */
+    /** Lock and validate every requested variant before changing any stock. */
     private boolean checkAndDeductStock(Order order, List<OrderItem> items) {
-        for (OrderItem item : items) {
+        Map<Long, Integer> quantities = aggregateQuantities(items);
+        Map<Long, ProductVariant> lockedVariants = new TreeMap<>();
+
+        for (Map.Entry<Long, Integer> entry : quantities.entrySet()) {
             ProductVariant variant = productVariantRepository
-                    .findByIdWithLock(item.getProductVariantId())
+                    .findByIdWithLock(entry.getKey())
                     .orElse(null);
 
             if (variant == null) {
                 log.warn("[OrderWorker] Variant [{}] không tồn tại, hủy đơn [{}]",
-                        item.getProductVariantId(), order.getId());
+                        entry.getKey(), order.getId());
                 return false;
             }
 
-            if (variant.getStockQuantity() < item.getQuantity()) {
+            if (variant.getStockQuantity() < entry.getValue()) {
                 log.warn("[OrderWorker] Variant [{}] thiếu kho: cần {}, còn {} → hủy đơn [{}]",
-                        variant.getId(), item.getQuantity(), variant.getStockQuantity(), order.getId());
+                        variant.getId(), entry.getValue(), variant.getStockQuantity(), order.getId());
                 return false;
             }
 
-            // Trừ kho
-            variant.setStockQuantity(variant.getStockQuantity() - item.getQuantity());
+            lockedVariants.put(entry.getKey(), variant);
+        }
+
+        for (Map.Entry<Long, Integer> entry : quantities.entrySet()) {
+            ProductVariant variant = lockedVariants.get(entry.getKey());
+            variant.setStockQuantity(variant.getStockQuantity() - entry.getValue());
             productVariantRepository.save(variant);
         }
         return true;
     }
 
-    /**
-     * Xử lý thanh toán dựa trên phương thức.
-     * @return true nếu thanh toán thành công hoặc là COD
-     */
-    private boolean processPayment(Order order) {
-        if (order.getPaymentMethod() == PaymentMethod.COD) {
-            // COD: không cần trừ tiền ngay, bỏ qua bước này
-            log.info("[OrderWorker] Đơn [{}] thanh toán COD, bỏ qua bước trừ ví", order.getId());
-            return true;
+    private void restoreStock(Order order, List<OrderItem> items) {
+        Map<Long, Integer> quantities = aggregateQuantities(items);
+        for (Map.Entry<Long, Integer> entry : quantities.entrySet()) {
+            ProductVariant variant = productVariantRepository.findByIdWithLock(entry.getKey())
+                    .orElseThrow(() -> new IllegalStateException(
+                            "Không tìm thấy biến thể " + entry.getKey() + " để hoàn kho đơn " + order.getId()));
+            variant.setStockQuantity(variant.getStockQuantity() + entry.getValue());
+            productVariantRepository.save(variant);
         }
+    }
 
-        // WALLET: kiểm tra và trừ số dư ví
-        User customer = userRepository.findById(order.getCustomerId()).orElse(null);
-        if (customer == null) return false;
-
-        BigDecimal grandTotal = order.getTotalAmount().add(order.getShippingFee());
-        BigDecimal currentBalance = customer.getBalance() != null ? customer.getBalance() : BigDecimal.ZERO;
-
-        if (currentBalance.compareTo(grandTotal) < 0) {
-            log.warn("[OrderWorker] Ví customer [{}] không đủ: cần {}, có {} → hủy đơn [{}]",
-                    customer.getId(), grandTotal, currentBalance, order.getId());
-            return false;
+    private Map<Long, Integer> aggregateQuantities(List<OrderItem> items) {
+        Map<Long, Integer> quantities = new TreeMap<>();
+        for (OrderItem item : items) {
+            quantities.merge(item.getProductVariantId(), item.getQuantity(), Integer::sum);
         }
+        return quantities;
+    }
 
-        // Trừ tiền ví
-        customer.setBalance(currentBalance.subtract(grandTotal));
-        userRepository.save(customer);
+    private void enqueueOrderAfterCommit(Long orderId) {
+        Runnable enqueue = () -> {
+            String queuedKey = ORDER_QUEUE_KEY + ":queued:" + orderId;
+            try {
+                Boolean claimed = redisTemplate.opsForValue()
+                        .setIfAbsent(queuedKey, "1", Duration.ofMinutes(1));
+                if (!Boolean.TRUE.equals(claimed)) {
+                    return;
+                }
+                redisTemplate.opsForList().rightPush(ORDER_QUEUE_KEY, orderId.toString());
+            } catch (RuntimeException e) {
+                redisTemplate.delete(queuedKey);
+                log.error("[OrderService] Không thể đưa orderId [{}] vào queue; worker recovery sẽ thử lại",
+                        orderId, e);
+            }
+        };
 
-        addTracking(order, TrackingStatus.PAYMENT_CONFIRMED,
-                String.format("Đã thanh toán %,.0f VND qua ví điện tử", grandTotal.doubleValue()), null);
-        log.info("[OrderWorker] Đã trừ {} VND ví của customer [{}] cho đơn [{}]",
-                grandTotal, customer.getId(), order.getId());
-        return true;
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    enqueue.run();
+                }
+            });
+        } else {
+            enqueue.run();
+        }
     }
 
     /** Hủy đơn hàng và ghi tracking */

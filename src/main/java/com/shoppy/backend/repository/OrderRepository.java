@@ -29,6 +29,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     /** Lấy danh sách đơn theo trạng thái (dùng cho Seller) */
     List<Order> findByStatusOrderByCreatedAtDesc(OrderStatus status);
 
+    List<Order> findByStatus(OrderStatus status);
+
     /** Lấy đơn của shipper đang giao */
     List<Order> findByShipperIdAndStatusOrderByCreatedAtDesc(Long shipperId, OrderStatus status);
 }

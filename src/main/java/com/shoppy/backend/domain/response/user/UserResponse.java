@@ -2,7 +2,7 @@ package com.shoppy.backend.domain.response.user;
 
 import com.shoppy.backend.common.enums.TransactionStatus;
 import com.shoppy.backend.common.enums.UserStatus;
-import com.shoppy.backend.entity.WalletDeposit;
+import com.shoppy.backend.entity.WalletTransaction;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -31,12 +31,14 @@ public class UserResponse {
             LocalDateTime createdAt
     ) {
         // Hàm tĩnh dùng để chuyển đổi nhanh từ Entity -> Response DTO
-        public static WalletDepositResponse fromEntity(WalletDeposit entity) {
+        public static WalletDepositResponse fromEntity(WalletTransaction entity) {
             if (entity == null) {
                 return null;
             }
             return WalletDepositResponse.builder()
-                    .id(entity.getId())
+                    .id(entity.getLegacyDepositId() != null
+                            ? entity.getLegacyDepositId()
+                            : entity.getId())
                     .userId(entity.getUserId())
                     .amount(entity.getAmount())
                     .status(entity.getStatus())

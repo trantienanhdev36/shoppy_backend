@@ -26,7 +26,7 @@ public class WalletController {
         UserResponse.WalletDepositResponse result = walletService.createDepositRequest(email, request.getAmount());
 
         return ResponseEntity.ok(
-                ApiResponse.success("Nạp tiền mô phỏng thành công!", result)
+                ApiResponse.success("Yêu cầu nạp tiền đã được tiếp nhận và đang xử lý.", result)
         );
     }
 }
