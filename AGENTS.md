@@ -363,6 +363,57 @@ src/main/java/com/shoppy/backend/
 
 ---
 
+### [2026-10-28] — Thêm bảng Categories & liên kết với Products
+- **Thay đổi**:
+  - Tạo entity `Category` kế thừa `BaseEntity`, hỗ trợ cây phân cấp (self-referencing `parent_id`), trường `slug` thân thiện URL, `imageUrl` (Cloudinary), `displayOrder`.
+  - Tạo `CategoryRepository` với các query: `findBySlug`, `findAllRootCategories`, `findByParentId`, `findAllActive`.
+  - Cập nhật entity `Product`: thêm quan hệ `@ManyToOne(FetchType.LAZY)` với `Category` (cột `category_id`, **nullable** để không phá vỡ dữ liệu cũ).
+  - Tạo migration SQL `V20261028__add_categories_table.sql` bao gồm:
+    - `CREATE TABLE categories` (với cột `parent_id` tự tham chiếu, hỗ trợ cây phân cấp)
+    - `ALTER TABLE products ADD COLUMN category_id` (nullable, FK → categories)
+    - `INSERT` 10 danh mục gốc: Điện tử & Công nghệ, Thời trang, Nhà cửa & Đời sống, Sức khỏe & Làm đẹp, Thể thao & Du lịch, Thực phẩm & Đồ uống, Sách & Văn phòng phẩm, Mẹ & Bé, Ô tô & Xe máy, Khác
+    - `INSERT` 14 danh mục con (sub-categories) cho các nhóm chính
+    - `UPDATE products SET category_id = (id của 'khac') WHERE category_id IS NULL` — gán toàn bộ sản phẩm cũ về danh mục "Khác"
+    - `CREATE INDEX` cho `category_id`, `slug`, `parent_id`, `display_order`
+- **File liên quan**:
+  - `entity/Category.java` (tạo mới)
+  - `repository/CategoryRepository.java` (tạo mới)
+  - `entity/Product.java` (sửa: thêm trường `category`)
+  - `src/main/resources/db/migration/V20261028__add_categories_table.sql` (tạo mới)
+  - `AGENTS.md` (sửa)
+- **Lý do**: Cung cấp cơ sở hạ tầng danh mục sản phẩm để hỗ trợ lọc, tìm kiếm và phân loại sản phẩm theo danh mục.
+- **Lưu ý**:
+  - Cột `category_id` trong `products` là **nullable** — sản phẩm mới nên được yêu cầu truyền category khi tạo (validation ở service layer, không phải DB constraint).
+  - Migration `UPDATE` sẽ gán tất cả sản phẩm cũ (chưa có category) vào danh mục **"Khác"** (slug=`khac`) — an toàn cho dữ liệu production.
+  - Slug phải là duy nhất — khi thêm danh mục mới cần generate slug từ name.
+  - `ON CONFLICT (slug) DO NOTHING` trong INSERT đảm bảo idempotent — chạy migration nhiều lần không gây lỗi.
+  - Cấu trúc cây (`parent_id`) hỗ trợ đệ quy không giới hạn cấp — nên giới hạn UI ở 2-3 cấp để UX tốt.
+
+---
+
+### [2026-10-28] — Phân trang GET /orders/my & Fix clamp trang cuối
+- **Thay đổi**:
+  - Tạo `PaginationUtils.fetchWithClamp()` — utility tái sử dụng logic "last page clamp": nếu `page` yêu cầu vượt quá tổng số trang và dữ liệu tồn tại → tự động redirect về trang cuối thay vì trả về rỗng.
+  - Thêm overload `Page<Order> findByCustomerId(Long customerId, Pageable pageable)` vào `OrderRepository`.
+  - Sửa `OrderService.getMyOrders()`: thay đổi signature thành `getMyOrders(email, page, size)` trả `PagedResponse<OrderSummaryResponse>`, sử dụng `PaginationUtils.fetchWithClamp`.
+  - Sửa `OrderController.GET /orders/my`: nhận query params `?page=0&size=10` (mặc định 10/trang), wrap response trong `ApiResponse<PagedResponse<...>>`.
+  - Fix `ProductService.getAllProducts()`: bổ sung clamp logic tương tự — nếu page vượt tổng trang → truy vấn lại trang cuối. Giữ nguyên logic query price range tối ưu.
+- **File liên quan**:
+  - `common/util/PaginationUtils.java` (tạo mới)
+  - `repository/OrderRepository.java` (sửa: thêm `Page<Order> findByCustomerId(Long, Pageable)`)
+  - `service/OrderService.java` (sửa: đổi signature `getMyOrders`)
+  - `controller/OrderController.java` (sửa: endpoint `GET /orders/my` thêm page/size params)
+  - `service/ProductService.java` (sửa: thêm clamp logic vào `getAllProducts`)
+  - `AGENTS.md` (sửa)
+- **Lý do**: Customer có thể tích lũy rất nhiều đơn hàng theo thời gian — cần phân trang để tránh load toàn bộ. Clamp về trang cuối cải thiện UX khi client gửi số trang sai.
+- **Lưu ý**:
+  - `PaginationUtils.fetchWithClamp()` có thể tái sử dụng cho mọi list endpoint khác (Shipper orders, COD transactions...).
+  - `GET /orders/my` giờ trả `ApiResponse<PagedResponse<OrderSummaryResponse>>` thay vì `List<>` — **breaking change** với client cũ nếu có.
+  - `size` mặc định là **10** cho orders (khác với products là 2/5).
+  - ProductService giữ nguyên logic price range riêng (không dùng `fetchWithClamp`) vì cần custom mapping 2-query.
+
+---
+
 ## 🔧 Hướng dẫn môi trường phát triển
 
 ### Chạy local:
@@ -383,3 +434,4 @@ docker-compose up -d
 - `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`
 - `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM`
 - `REDIS_HOST`, `REDIS_PORT`
+

@@ -1,5 +1,7 @@
 package com.shoppy.backend.controller;
 
+import com.shoppy.backend.common.dto.ApiResponse;
+import com.shoppy.backend.common.dto.PagedResponse;
 import com.shoppy.backend.common.enums.OrderStatus;
 import com.shoppy.backend.domain.request.order.CreateOrderRequest;
 import com.shoppy.backend.domain.response.order.OrderResponse;
@@ -54,15 +56,19 @@ public class OrderController {
     }
 
     /**
-     * GET /orders/my
-     * Khách hàng xem danh sách đơn hàng của mình.
+     * GET /orders/my?page=0&size=10
+     * Khách hàng xem danh sách đơn hàng của mình (có phân trang).
+     * Nếu page vượt quá tổng số trang → tự động trả về trang cuối.
      */
     @GetMapping("/my")
-    public ResponseEntity<List<OrderResponse.OrderSummaryResponse>> getMyOrders(
+    public ResponseEntity<ApiResponse<PagedResponse<OrderResponse.OrderSummaryResponse>>> getMyOrders(
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "10") int size,
             Authentication authentication) {
 
         String email = authentication.getName();
-        return ResponseEntity.ok(orderService.getMyOrders(email));
+        PagedResponse<OrderResponse.OrderSummaryResponse> result = orderService.getMyOrders(email, page, size);
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách đơn hàng thành công!", result));
     }
 
     /**

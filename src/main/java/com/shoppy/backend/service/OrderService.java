@@ -1,12 +1,15 @@
 package com.shoppy.backend.service;
 
+import com.shoppy.backend.common.dto.PagedResponse;
 import com.shoppy.backend.common.enums.*;
+import com.shoppy.backend.common.util.PaginationUtils;
 import com.shoppy.backend.domain.request.order.CreateOrderRequest;
 import com.shoppy.backend.domain.response.order.OrderResponse;
 import com.shoppy.backend.entity.*;
 import com.shoppy.backend.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -394,15 +397,28 @@ public class OrderService {
         return buildDetailResponse(order);
     }
 
-    /** Lấy danh sách đơn hàng của customer */
-    public List<OrderResponse.OrderSummaryResponse> getMyOrders(String customerEmail) {
+    /**
+     * Lấy danh sách đơn hàng của customer — có phân trang.
+     * Nếu {@code page} vượt quá tổng số trang → tự động clamp về trang cuối.
+     *
+     * @param customerEmail Email của customer hiện tại
+     * @param page          Số trang (0-indexed)
+     * @param size          Số bản ghi mỗi trang
+     */
+    public PagedResponse<OrderResponse.OrderSummaryResponse> getMyOrders(
+            String customerEmail, int page, int size) {
+
         User customer = userRepository.findByEmail(customerEmail)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
 
-        return orderRepository.findByCustomerIdOrderByCreatedAtDesc(customer.getId())
-                .stream()
-                .map(OrderResponse.OrderSummaryResponse::fromEntity)
-                .toList();
+        return PaginationUtils.fetchWithClamp(
+                page,
+                size,
+                "createdAt",
+                Sort.Direction.DESC,
+                pageable -> orderRepository.findByCustomerId(customer.getId(), pageable),
+                OrderResponse.OrderSummaryResponse::fromEntity
+        );
     }
 
     /** Seller/Admin xem đơn theo trạng thái */

@@ -32,6 +32,14 @@ public class Product extends BaseEntity {
     @JoinColumn(name = "shop_id", nullable = false)
     private Shop shop;
 
+    /**
+     * Danh mục sản phẩm — nullable để không phá vỡ sản phẩm cũ.
+     * Migration SQL sẽ update category_id cho các sản phẩm cũ.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id")
+    private Category category;
+
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ProductVariant> variants;
 

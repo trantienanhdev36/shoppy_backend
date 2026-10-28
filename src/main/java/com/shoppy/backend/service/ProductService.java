@@ -1,6 +1,7 @@
 package com.shoppy.backend.service;
 
 import com.shoppy.backend.common.dto.PagedResponse;
+import com.shoppy.backend.common.util.PaginationUtils;
 import com.shoppy.backend.domain.request.product.CreateProductRequest;
 import com.shoppy.backend.domain.request.product.ProductVariantRequest;
 import com.shoppy.backend.domain.response.product.*;
@@ -113,7 +114,7 @@ public class ProductService {
 
     /**
      * Lấy danh sách sản phẩm có phân trang.
-     * Mặc định 5 bản ghi mỗi trang, sắp xếp theo createdAt giảm dần (mới nhất lên đầu).
+     * Nếu {@code page} vượt quá tổng số trang → tự động clamp về trang cuối thay vì trả về rỗng.
      *
      * @param page  Số trang (0-indexed, mặc định 0)
      * @param size  Số bản ghi mỗi trang (mặc định 5)
@@ -122,6 +123,13 @@ public class ProductService {
     public PagedResponse<ProductResponseDTO> getAllProducts(int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<Product> productPage = productRepository.findAll(pageable);
+
+        // Clamp: nếu trang yêu cầu vượt quá tổng trang và có dữ liệu → lấy trang cuối
+        if (productPage.isEmpty() && productPage.getTotalPages() > 0) {
+            int lastPage = productPage.getTotalPages() - 1;
+            pageable = PageRequest.of(lastPage, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+            productPage = productRepository.findAll(pageable);
+        }
 
         // Chỉ lấy price range của các sản phẩm trong trang hiện tại — tối ưu hiệu năng
         List<Long> productIds = productPage.getContent().stream()

@@ -3,6 +3,8 @@ package com.shoppy.backend.repository;
 import com.shoppy.backend.common.enums.OrderStatus;
 import com.shoppy.backend.entity.Order;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -23,8 +25,14 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Query("SELECT o FROM Order o WHERE o.id = :id")
     Optional<Order> findByIdWithLock(@Param("id") Long id);
 
-    /** Lấy toàn bộ đơn hàng của một khách hàng */
+    /** Lấy toàn bộ đơn hàng của một khách hàng (không phân trang — giữ lại để tương thích) */
     List<Order> findByCustomerIdOrderByCreatedAtDesc(Long customerId);
+
+    /**
+     * Lấy đơn hàng của một khách hàng — có phân trang.
+     * Sort được truyền qua Pageable (thường dùng Sort.by(DESC, "createdAt")).
+     */
+    Page<Order> findByCustomerId(Long customerId, Pageable pageable);
 
     /** Lấy danh sách đơn theo trạng thái (dùng cho Seller) */
     List<Order> findByStatusOrderByCreatedAtDesc(OrderStatus status);
