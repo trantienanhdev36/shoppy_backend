@@ -1,10 +1,14 @@
 package com.shoppy.backend.controller;
 
 import com.shoppy.backend.common.dto.ApiResponse;
+import com.shoppy.backend.domain.request.shipper.RegisterShipperRequest;
 import com.shoppy.backend.domain.request.shop.RegisterShopRequest;
 import com.shoppy.backend.domain.request.user.RegisterRequest;
+import com.shoppy.backend.domain.response.shipper.ShipperResponse;
 import com.shoppy.backend.domain.response.shop.ShopResponse;
+import com.shoppy.backend.domain.response.user.UserResponse;
 import com.shoppy.backend.entity.User;
+import com.shoppy.backend.service.ShipperService;
 import com.shoppy.backend.service.ShopService;
 import com.shoppy.backend.service.UserService;
 import jakarta.validation.Valid;
@@ -23,19 +27,20 @@ public class UserController {
 
     private final UserService userService;
     private final ShopService shopService;
+    private final ShipperService shipperService;
 
     @PostMapping(value = "/register", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<ApiResponse<User>> register(
+    public ResponseEntity<ApiResponse<UserResponse>> register(
             @Valid @ModelAttribute RegisterRequest request,
             // required = false giúp nhận được request kể cả khi KHÔNG truyền key 'avatar'
             @RequestParam(value = "avatar", required = false) MultipartFile avatar
     ) {
         User registeredUser = userService.register(request, avatar);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Đăng ký thành công! Vui lòng kiểm tra email để kích hoạt tài khoản.", registeredUser));
+                .body(ApiResponse.success("Yêu cầu đăng ký được ghi nhận! Vui lòng kiểm tra email để kích hoạt tài khoản.", UserResponse.fromEntity(registeredUser)));
     }
     @GetMapping("/profile")
-    public ResponseEntity<ApiResponse<User>> getMyProfile(Authentication authentication) {
+    public ResponseEntity<ApiResponse<UserResponse>> getMyProfile(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(ApiResponse.error("Bạn chưa đăng nhập hoặc Token không hợp lệ!"));
@@ -45,7 +50,7 @@ public class UserController {
         User user = userService.getUserByEmail(currentEmail);
 
         return ResponseEntity.ok(
-                ApiResponse.success("Lấy thông tin người dùng thành công!", user)
+                ApiResponse.success("Lấy thông tin người dùng thành công!", UserResponse.fromEntity(user))
         );
     }
 
@@ -60,6 +65,19 @@ public class UserController {
 
         return ResponseEntity.ok(
                 ApiResponse.success("Đăng ký Shop thành công!", response)
+        );
+    }
+
+    @PostMapping("/shippers/register")
+    public ResponseEntity<ApiResponse<ShipperResponse>> registerShipper(
+            Authentication authentication,
+            @Valid @RequestBody RegisterShipperRequest request
+    ) {
+        String email = authentication.getName();
+        ShipperResponse response = shipperService.registerShipper(email, request);
+
+        return ResponseEntity.ok(
+                ApiResponse.success("Đăng ký làm Shipper thành công!", response)
         );
     }
 }

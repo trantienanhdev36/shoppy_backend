@@ -1,6 +1,7 @@
 package com.shoppy.backend.controller;
 
 import com.shoppy.backend.common.dto.ApiResponse;
+import com.shoppy.backend.common.dto.PagedResponse;
 import com.shoppy.backend.domain.request.product.CreateProductRequest;
 import com.shoppy.backend.domain.response.product.ProductDetailResponseDTO;
 import com.shoppy.backend.domain.response.product.ProductResponseDTO;
@@ -36,12 +37,24 @@ public class ProductController {
         );
     }
 
+    /**
+     * Lấy danh sách sản phẩm có phân trang.
+     *
+     * @param page Số trang (0-indexed, mặc định 0)
+     * @param size Số bản ghi mỗi trang (mặc định 5)
+     *
+     * Ví dụ: GET /products/getAll?page=0&size=5
+     *        GET /products/getAll?page=1&size=10
+     */
     @GetMapping(value = "/getAll")
-    public ResponseEntity<ApiResponse<List<ProductResponseDTO>>> getAllProducts() {
-        List<ProductResponseDTO> products = productService.getAllProducts();
+    public ResponseEntity<ApiResponse<PagedResponse<ProductResponseDTO>>> getAllProducts(
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "2") int size
+    ) {
+        PagedResponse<ProductResponseDTO> response = productService.getAllProducts(page, size);
 
         return ResponseEntity.ok(
-                ApiResponse.success("Lấy danh sách sản phẩm thành công!", products)
+                ApiResponse.success("Lấy danh sách sản phẩm thành công!", response)
         );
     }
 
@@ -53,4 +66,4 @@ public class ProductController {
                 ApiResponse.success("Lấy chi tiết sản phẩm thành công!", response)
         );
     }
-}
+}

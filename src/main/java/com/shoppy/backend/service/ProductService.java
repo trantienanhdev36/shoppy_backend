@@ -1,5 +1,6 @@
 package com.shoppy.backend.service;
 
+import com.shoppy.backend.common.dto.PagedResponse;
 import com.shoppy.backend.domain.request.product.CreateProductRequest;
 import com.shoppy.backend.domain.request.product.ProductVariantRequest;
 import com.shoppy.backend.domain.response.product.*;
@@ -8,14 +9,18 @@ import com.shoppy.backend.repository.ProductRepository;
 import com.shoppy.backend.repository.ShopRepository;
 import com.shoppy.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.Map;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -103,127 +108,60 @@ public class ProductService {
         Product savedProduct = productRepository.save(product);
 
         // 6. Map sang Response
-        return mapToProductResponse(savedProduct);
+        return ProductResponseDTO.fromEntity(savedProduct);
     }
 
-    private ProductResponseDTO mapToProductResponse(Product product) {
-        ProductResponseDTO response = new ProductResponseDTO();
-        response.setId(product.getId());
-        response.setName(product.getName());
-        response.setDescription(product.getDescription());
-        response.setHasVariants(product.isHasVariants());
-        setPriceRange(response, product.getVariants());
+    /**
+     * Lấy danh sách sản phẩm có phân trang.
+     * Mặc định 5 bản ghi mỗi trang, sắp xếp theo createdAt giảm dần (mới nhất lên đầu).
+     *
+     * @param page  Số trang (0-indexed, mặc định 0)
+     * @param size  Số bản ghi mỗi trang (mặc định 5)
+     * @return PagedResponse chứa danh sách sản phẩm và metadata phân trang
+     */
+    public PagedResponse<ProductResponseDTO> getAllProducts(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<Product> productPage = productRepository.findAll(pageable);
 
-        // Map danh sách ảnh chung sang ProductImageDTO
-        if (product.getImages() != null) {
-            List<ProductImageDTO> imageResponses = product.getImages().stream().map(img -> {
-                ProductImageDTO ir = new ProductImageDTO();
-                ir.setId(img.getId());
-                ir.setImageUrl(img.getImageUrl());
-                return ir;
-            }).toList();
-            response.setImages(imageResponses);
-        }
+        // Chỉ lấy price range của các sản phẩm trong trang hiện tại — tối ưu hiệu năng
+        List<Long> productIds = productPage.getContent().stream()
+                .map(Product::getId)
+                .toList();
 
-        return response;
-    }
-
-    // Lấy tất cả sản phẩm gốc (Chỉ lấy thông tin sản phẩm và ảnh gốc, không trả về biến thể)
-    public List<ProductResponseDTO> getAllProducts() {
-        List<Product> products = productRepository.findAll();
         Map<Long, ProductRepository.ProductPriceRange> priceRanges =
-                productRepository.findProductPriceRanges().stream()
-                        .collect(Collectors.toMap(
-                                ProductRepository.ProductPriceRange::getProductId,
-                                Function.identity()
-                        ));
+                productIds.isEmpty()
+                        ? Map.of()
+                        : productRepository.findProductPriceRangesByIds(productIds).stream()
+                                .collect(Collectors.toMap(
+                                        ProductRepository.ProductPriceRange::getProductId,
+                                        Function.identity()
+                                ));
 
-        return products.stream().map(product -> {
-            ProductResponseDTO dto = new ProductResponseDTO();
-            dto.setId(product.getId());
-            dto.setName(product.getName());
-            dto.setDescription(product.getDescription());
-            dto.setHasVariants(product.isHasVariants());
+        List<ProductResponseDTO> content = productPage.getContent().stream().map(product -> {
             ProductRepository.ProductPriceRange priceRange = priceRanges.get(product.getId());
-            if (priceRange != null) {
-                dto.setMinPrice(priceRange.getMinPrice());
-                dto.setMaxPrice(priceRange.getMaxPrice());
-            }
+            BigDecimal minPrice = priceRange != null ? priceRange.getMinPrice() : null;
+            BigDecimal maxPrice = priceRange != null ? priceRange.getMaxPrice() : null;
+            return ProductResponseDTO.fromEntity(product, minPrice, maxPrice);
+        }).toList();
 
-            // Map danh sách ảnh của sản phẩm gốc
-            if (product.getImages() != null) {
-                List<ProductImageDTO> imageDTOs = product.getImages().stream().map(img -> {
-                    ProductImageDTO imgDto = new ProductImageDTO();
-                    imgDto.setId(img.getId());
-                    imgDto.setImageUrl(img.getImageUrl());
-                    return imgDto;
-                }).collect(Collectors.toList());
-                dto.setImages(imageDTOs);
-            }
-            return dto;
-        }).collect(Collectors.toList());
+        return PagedResponse.<ProductResponseDTO>builder()
+                .content(content)
+                .page(productPage.getNumber())
+                .size(productPage.getSize())
+                .totalElements(productPage.getTotalElements())
+                .totalPages(productPage.getTotalPages())
+                .hasNext(productPage.hasNext())
+                .hasPrevious(productPage.hasPrevious())
+                .build();
     }
 
-    private void setPriceRange(ProductResponseDTO response, List<ProductVariant> variants) {
-        if (variants == null || variants.isEmpty()) {
-            return;
-        }
-
-        response.setMinPrice(variants.stream()
-                .map(ProductVariant::getPrice)
-                .min(BigDecimal::compareTo)
-                .orElse(null));
-        response.setMaxPrice(variants.stream()
-                .map(ProductVariant::getPrice)
-                .max(BigDecimal::compareTo)
-                .orElse(null));
-    }
-
-    // Lấy chi tiết sản phẩm: Nếu có biến thể thì trả về danh sách biến thể, nếu không có thì trả về ảnh gốc
+    /**
+     * Lấy chi tiết sản phẩm: Nếu có biến thể thì trả về danh sách biến thể, nếu không có thì trả về ảnh gốc.
+     */
     public ProductDetailResponseDTO getProductById(Long id) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm với ID: " + id));
 
-        ProductDetailResponseDTO dto = new ProductDetailResponseDTO();
-        dto.setId(product.getId());
-        dto.setName(product.getName());
-        dto.setDescription(product.getDescription());
-        dto.setHasVariants(product.isHasVariants());
-
-        // Kiểm tra nếu sản phẩm có biến thể
-        if (product.isHasVariants() && product.getVariants() != null && !product.getVariants().isEmpty()) {
-            List<ProductVariantDTO> variantDTOs = product.getVariants().stream().map(variant -> {
-                ProductVariantDTO vDto = new ProductVariantDTO();
-                vDto.setId(variant.getId());
-                vDto.setSku(variant.getSku());
-                vDto.setPrice(variant.getPrice());
-                vDto.setStockQuantity(variant.getStockQuantity());
-
-                // Nếu ProductVariant dùng imageUrl kiểu String đơn thuần (như logic ở hàm create)
-                if (variant.getImageUrl() != null && !variant.getImageUrl().isEmpty()) {
-                    ProductImageDTO imgDto = new ProductImageDTO();
-                    // Nếu imageUrl là String, ta có thể gán trực tiếp hoặc bọc vào DTO tùy cấu trúc của bạn
-                    imgDto.setImageUrl(variant.getImageUrl());
-                    vDto.setImages(List.of(imgDto));
-                }
-
-                return vDto;
-            }).collect(Collectors.toList());
-
-            dto.setVariants(variantDTOs);
-        } else {
-            // Nếu không có biến thể, trả về ảnh của sản phẩm gốc
-            if (product.getImages() != null) {
-                List<ProductImageDTO> imageDTOs = product.getImages().stream().map(img -> {
-                    ProductImageDTO imgDto = new ProductImageDTO();
-                    imgDto.setId(img.getId());
-                    imgDto.setImageUrl(img.getImageUrl());
-                    return imgDto;
-                }).collect(Collectors.toList());
-                dto.setImages(imageDTOs);
-            }
-        }
-
-        return dto;
+        return ProductDetailResponseDTO.fromEntity(product);
     }
 }

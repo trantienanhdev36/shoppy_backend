@@ -17,6 +17,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.shoppy.backend.common.enums.NotificationType;
 import java.time.LocalDateTime;
 
 @Service
@@ -27,6 +28,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtils jwtUtils;
+    private final NotificationService notificationService;
 
     @Transactional(readOnly = true)
     public AuthResponse login(LoginRequest request) {
@@ -48,13 +50,7 @@ public class AuthService {
         String accessToken = jwtUtils.generateToken(user);
 
         // 5. Chuyển đổi User Entity sang UserResponse DTO
-        UserResponse userResponse = UserResponse.builder()
-                .id(user.getId())
-                .email(user.getEmail())
-                .fullName(user.getFullName())
-                .role(user.getRole() != null ? user.getRole().name() : null)
-                .status(user.getStatus())
-                .build();
+        UserResponse userResponse = UserResponse.fromEntity(user);
 
         // 6. Trả về AuthResponse Model chuẩn RESTful
         return AuthResponse.builder()
@@ -90,7 +86,16 @@ public class AuthService {
             user.setStatus(UserStatus.ACTIVE);
             userRepository.save(user);
 
-            // 4. Xóa Token sau khi đã dùng xong
+            // 4. Gửi thông báo in-app
+            notificationService.sendNotification(
+                    user.getId(),
+                    NotificationType.EMAIL_VERIFIED,
+                    "Kích hoạt tài khoản thành công",
+                    "Chúc mừng bạn đã xác thực email thành công! Bây giờ bạn có thể trải nghiệm mua sắm trên Shoppy.",
+                    user.getId()
+            );
+
+            // 5. Xóa Token sau khi đã dùng xong
             tokenRepository.delete(verificationToken);
 
             log.info("Tài khoản {} đã kích hoạt thành công", user.getEmail());

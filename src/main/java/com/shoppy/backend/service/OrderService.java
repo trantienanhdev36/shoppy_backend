@@ -38,6 +38,8 @@ public class OrderService {
     private final ShippingCompanyRepository shippingCompanyRepository;
     private final WalletTransactionRepository walletTransactionRepository;
     private final WalletService walletService;
+    private final ShopRepository shopRepository;
+    private final NotificationService notificationService;
 
     // ── Redis ─────────────────────────────────────────────────────────────────
     private final StringRedisTemplate redisTemplate;
@@ -131,6 +133,27 @@ public class OrderService {
         enqueueOrderAfterCommit(savedOrder.getId());
         log.info("[OrderService] Đã đẩy orderId [{}] vào Redis Queue '{}'", savedOrder.getId(), ORDER_QUEUE_KEY);
 
+        // 1.8 Gửi thông báo in-app cho khách hàng & người bán
+        notificationService.sendNotification(
+                customer.getId(),
+                NotificationType.ORDER_PLACED,
+                "Đặt hàng thành công",
+                "Đơn hàng #" + savedOrder.getId() + " của bạn đã được đặt thành công.",
+                savedOrder.getId()
+        );
+
+        if (shopId != null) {
+            shopRepository.findById(shopId).ifPresent(shop -> {
+                notificationService.sendNotification(
+                        shop.getUserId(),
+                        NotificationType.NEW_ORDER_FOR_SELLER,
+                        "Có đơn hàng mới",
+                        "Shop của bạn vừa nhận được đơn hàng mới #" + savedOrder.getId() + ".",
+                        savedOrder.getId()
+                );
+            });
+        }
+
         return OrderResponse.CreateOrderResponse.fromEntity(savedOrder);
     }
 
@@ -220,6 +243,14 @@ public class OrderService {
                 "Đơn hàng đã được xác nhận, shop đang chuẩn bị hàng", null);
         log.info("[OrderWorker] Xử lý thành công orderId [{}] → PROCESSING (walletPayment={})",
                 order.getId(), walletPayment);
+
+        notificationService.sendNotification(
+                order.getCustomerId(),
+                NotificationType.ORDER_STATUS_CHANGED,
+                "Đơn hàng đã được xác nhận",
+                "Đơn hàng #" + order.getId() + " đã được xác nhận thành công và shop đang chuẩn bị hàng.",
+                order.getId()
+        );
     }
 
     // ═════════════════════════════════════════════════════════════════════════
@@ -242,6 +273,14 @@ public class OrderService {
         orderRepository.save(order);
         addTracking(order, TrackingStatus.READY_FOR_PICKUP,
                 "Hàng đã đóng gói xong, sẵn sàng cho shipper lấy", sellerId);
+
+        notificationService.sendNotification(
+                order.getCustomerId(),
+                NotificationType.ORDER_STATUS_CHANGED,
+                "Đơn hàng sẵn sàng giao",
+                "Đơn hàng #" + order.getId() + " đã được đóng gói và sẵn sàng giao cho shipper.",
+                order.getId()
+        );
 
         return buildDetailResponse(order);
     }
@@ -277,6 +316,14 @@ public class OrderService {
         addTracking(order, TrackingStatus.PICKED_UP,
                 "Shipper đã nhận đơn và bắt đầu giao hàng", shipperId);
 
+        notificationService.sendNotification(
+                order.getCustomerId(),
+                NotificationType.ORDER_STATUS_CHANGED,
+                "Đơn hàng đang được giao",
+                "Đơn hàng #" + order.getId() + " đang được shipper giao đến bạn.",
+                order.getId()
+        );
+
         log.info("[OrderService] Shipper [{}] đã nhận đơn [{}]", shipperId, orderId);
         return buildDetailResponse(order);
     }
@@ -301,6 +348,14 @@ public class OrderService {
         order.setStatus(OrderStatus.DELIVERED);
         orderRepository.save(order);
         addTracking(order, TrackingStatus.DELIVERED, "Giao hàng thành công", shipperId);
+
+        notificationService.sendNotification(
+                order.getCustomerId(),
+                NotificationType.ORDER_STATUS_CHANGED,
+                "Đơn hàng đã giao thành công",
+                "Đơn hàng #" + order.getId() + " đã được giao thành công.",
+                order.getId()
+        );
 
         // Nếu COD → Ghi nhận bản ghi thu tiền mặt cho shipper
         if (order.getPaymentMethod() == PaymentMethod.COD) {
@@ -457,6 +512,14 @@ public class OrderService {
         orderRepository.save(order);
         addTracking(order, TrackingStatus.CANCELLED, reason, null);
         log.info("[OrderWorker] Đã hủy đơn [{}]: {}", order.getId(), reason);
+
+        notificationService.sendNotification(
+                order.getCustomerId(),
+                NotificationType.ORDER_STATUS_CHANGED,
+                "Đơn hàng đã bị hủy",
+                "Đơn hàng #" + order.getId() + " đã bị hủy. Lý do: " + reason,
+                order.getId()
+        );
     }
 
     /** Tạo bản ghi OrderTracking */

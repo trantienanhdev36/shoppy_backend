@@ -1,0 +1,5 @@
+# Created at 2026-10-22T18:27:15.325
+Boot Manifest-JAR contains absolute paths in classpath 'D:\itellij_project\Shoppy\target\test-classes'
+Hint: <argLine>-Djdk.net.URLClassPath.disableClassPathURLCheck=true</argLine>
+'other' has different root
+

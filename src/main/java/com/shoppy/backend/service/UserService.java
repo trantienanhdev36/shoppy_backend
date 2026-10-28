@@ -5,10 +5,8 @@ import com.shoppy.backend.common.enums.UserStatus;
 import com.shoppy.backend.common.exception.AppException;
 import com.shoppy.backend.common.exception.ErrorCode;
 import com.shoppy.backend.domain.request.user.RegisterRequest;
-import com.shoppy.backend.entity.ShippingCompany;
 import com.shoppy.backend.entity.User;
 import com.shoppy.backend.entity.VerificationToken;
-import com.shoppy.backend.repository.ShippingCompanyRepository;
 import com.shoppy.backend.repository.UserRepository;
 import com.shoppy.backend.repository.VerificationTokenRepository;
 import lombok.RequiredArgsConstructor;
@@ -27,7 +25,6 @@ import java.util.UUID;
 public class UserService {
 
     private final UserRepository userRepository;
-    private final ShippingCompanyRepository shippingCompanyRepository;
     private final VerificationTokenRepository tokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final CloudinaryService cloudinaryService;
@@ -46,15 +43,6 @@ public class UserService {
             throw new AppException(ErrorCode.PHONE_EXISTED);
         }
 
-        ShippingCompany shippingCompany = null;
-        if (request.getRole() == UserRole.SHIPPER) {
-            if (request.getShippingCompanyId() == null) {
-                throw new AppException(ErrorCode.SHIPPER_COMPANY_REQUIRED);
-            }
-            shippingCompany = shippingCompanyRepository.findById(request.getShippingCompanyId())
-                    .orElseThrow(() -> new AppException(ErrorCode.SHIPPING_COMPANY_NOT_FOUND));
-        }
-
         //  XỬ LÝ ẢNH MẶC ĐỊNH:
         String avatarUrl = defaultAvatarUrl; // Mặc định gán ảnh hệ thống trước
         if (avatar != null && !avatar.isEmpty()) {
@@ -67,10 +55,10 @@ public class UserService {
                 .email(request.getEmail())
                 .phone(request.getPhone())
                 .password(passwordEncoder.encode(request.getPassword()))
-                .role(request.getRole())
+                .role(UserRole.CUSTOMER) // Mọi user đăng ký mặc định là CUSTOMER
                 .status(UserStatus.INACTIVE)
                 .balance(BigDecimal.ZERO)
-                .shippingCompany(shippingCompany)
+                .shippingCompany(null)
                 .avatarUrl(avatarUrl) //  Đảm bảo luôn có URL (ảnh upload hoặc ảnh mặc định)
                 .build();
 

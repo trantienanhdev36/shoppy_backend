@@ -49,6 +49,7 @@ public class SecurityConfig {
                         // Cho phép truy cập tự do không cần token
                         .requestMatchers("/users/register", "/auth/login", "/products/raw", "/auth/verify").permitAll()
                         .requestMatchers(HttpMethod.GET, "/products/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/shipping-companies/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/products/**").hasRole("SELLER")
 
                         // Phân quyền dành riêng cho Admin
@@ -74,6 +75,10 @@ public class SecurityConfig {
 
                         // Các API cá nhân của người dùng yêu cầu đã đăng nhập
                         .requestMatchers("/users/**").authenticated()
+                        .requestMatchers("/notifications/**").authenticated()
+
+                        // ── SHIPPER ENDPOINTS ───────────────────────────────
+                        .requestMatchers("/shipper/**").hasRole("SHIPPER")
 
                         // Tất cả các request còn lại bắt buộc phải xác thực
                         .anyRequest().authenticated()

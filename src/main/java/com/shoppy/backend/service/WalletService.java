@@ -1,5 +1,6 @@
 package com.shoppy.backend.service;
 
+import com.shoppy.backend.common.enums.NotificationType;
 import com.shoppy.backend.domain.response.user.UserResponse;
 import com.shoppy.backend.entity.User;
 import com.shoppy.backend.entity.WalletDeposit;
@@ -29,6 +30,7 @@ public class WalletService {
     private final WalletDepositRepository walletDepositRepository;
     private final WalletTransactionRepository walletTransactionRepository;
     private final StringRedisTemplate redisTemplate;
+    private final NotificationService notificationService;
 
     public static final String WALLET_QUEUE_KEY = "queue:wallet";
     public static final String ORDER_QUEUE_KEY = "queue:orders";
@@ -121,6 +123,17 @@ public class WalletService {
         userRepository.save(user);
         walletTransactionRepository.save(transaction);
         enqueueOrderAfterCommit(transaction);
+
+        if (transaction.getType() == WalletTransactionType.CREDIT) {
+            notificationService.sendNotification(
+                    user.getId(),
+                    NotificationType.WALLET_DEPOSIT,
+                    "Nạp tiền ví thành công",
+                    String.format("Bạn đã nạp thành công %,.0f VND vào ví Shoppy. Số dư hiện tại: %,.0f VND.",
+                            transaction.getAmount().doubleValue(), newBalance.doubleValue()),
+                    transaction.getId()
+            );
+        }
 
         log.info("[WalletQueue] Giao dịch [{}] {} hoàn tất. Số dư mới: {}",
                 transactionId, transaction.getType(), newBalance);

@@ -1,7 +1,9 @@
 package com.shoppy.backend.domain.response.user;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.shoppy.backend.common.enums.TransactionStatus;
 import com.shoppy.backend.common.enums.UserStatus;
+import com.shoppy.backend.entity.User;
 import com.shoppy.backend.entity.WalletTransaction;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -15,12 +17,42 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class UserResponse {
+
     private Long id;
     private String email;
     private String fullName;
+    private String phone;
     private String role;
     private UserStatus status;
+    private BigDecimal balance;
+    private String avatarUrl;
+    private Long shippingCompanyId;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+
+    /**
+     * Chuyển đổi từ User Entity sang UserResponse DTO
+     */
+    public static UserResponse fromEntity(User user) {
+        if (user == null) {
+            return null;
+        }
+        return UserResponse.builder()
+                .id(user.getId())
+                .email(user.getEmail())
+                .fullName(user.getFullName())
+                .phone(user.getPhone())
+                .role(user.getRole() != null ? user.getRole().name() : null)
+                .status(user.getStatus())
+                .balance(user.getBalance())
+                .avatarUrl(user.getAvatarUrl())
+                .shippingCompanyId(user.getShippingCompanyId())
+                .createdAt(user.getCreatedAt())
+                .updatedAt(user.getUpdatedAt())
+                .build();
+    }
 
     @Builder
     public static record WalletDepositResponse(
@@ -30,7 +62,6 @@ public class UserResponse {
             TransactionStatus status,
             LocalDateTime createdAt
     ) {
-        // Hàm tĩnh dùng để chuyển đổi nhanh từ Entity -> Response DTO
         public static WalletDepositResponse fromEntity(WalletTransaction entity) {
             if (entity == null) {
                 return null;

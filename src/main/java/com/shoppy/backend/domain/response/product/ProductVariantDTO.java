@@ -1,16 +1,43 @@
 package com.shoppy.backend.domain.response.product;
 
+import com.shoppy.backend.entity.ProductVariant;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
-import java.math.BigDecimal; // <-- Import BigDecimal
+
+import java.math.BigDecimal;
 import java.util.List;
 
 @Getter
 @Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class ProductVariantDTO {
     private Long id;
+    private String variantName;
     private String sku;
-    private BigDecimal price; // <-- Khớp với kiểu dữ liệu giá tiền trong Entity
+    private BigDecimal price;
     private int stockQuantity;
-    private List<ProductImageDTO> images; // Ảnh riêng của biến thể (nếu có)
+    private List<ProductImageDTO> images;
+
+    public static ProductVariantDTO fromEntity(ProductVariant variant) {
+        if (variant == null) return null;
+        List<ProductImageDTO> images = null;
+        if (variant.getImageUrl() != null && !variant.getImageUrl().isEmpty()) {
+            images = List.of(ProductImageDTO.builder()
+                    .imageUrl(variant.getImageUrl())
+                    .build());
+        }
+        return ProductVariantDTO.builder()
+                .id(variant.getId())
+                .variantName(variant.getVariantName())
+                .sku(variant.getSku())
+                .price(variant.getPrice())
+                .stockQuantity(variant.getStockQuantity())
+                .images(images)
+                .build();
+    }
 }
