@@ -4,7 +4,9 @@ import com.shoppy.backend.common.enums.UserRole;
 import com.shoppy.backend.common.enums.UserStatus;
 import com.shoppy.backend.common.exception.AppException;
 import com.shoppy.backend.common.exception.ErrorCode;
+import com.shoppy.backend.domain.request.user.ChangePasswordRequest;
 import com.shoppy.backend.domain.request.user.RegisterRequest;
+import com.shoppy.backend.domain.request.user.UpdateProfileRequest;
 import com.shoppy.backend.entity.User;
 import com.shoppy.backend.entity.VerificationToken;
 import com.shoppy.backend.repository.UserRepository;
@@ -84,8 +86,57 @@ public class UserService {
 
     public User getUserByEmail(String email) {
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng với email: " + email));
-        // Lưu ý: Nếu dự án có Custom Exception (ví dụ ResourceNotFoundException), hãy dùng thay cho RuntimeException
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
     }
 
+    /**
+     * Cập nhật thông tin hồ sơ cá nhân của người dùng (họ tên, số điện thoại, avatar).
+     */
+    @Transactional
+    public User updateProfile(String email, UpdateProfileRequest request, MultipartFile avatar) {
+        User user = getUserByEmail(email);
+
+        // 1. Kiểm tra số điện thoại (nếu đổi số điện thoại mới thì không được trùng với tài khoản khác)
+        if (request.getPhone() != null && !request.getPhone().isBlank()) {
+            String newPhone = request.getPhone().trim();
+            if (!newPhone.equals(user.getPhone())) {
+                if (userRepository.existsByPhoneAndIdNot(newPhone, user.getId())) {
+                    throw new AppException(ErrorCode.PHONE_EXISTED);
+                }
+                user.setPhone(newPhone);
+            }
+        } else if (request.getPhone() != null && request.getPhone().isBlank()) {
+            user.setPhone(null);
+        }
+
+        // 2. Cập nhật họ tên
+        if (request.getFullName() != null && !request.getFullName().isBlank()) {
+            user.setFullName(request.getFullName().trim());
+        }
+
+        // 3. Cập nhật ảnh đại diện mới nếu có upload
+        if (avatar != null && !avatar.isEmpty()) {
+            String newAvatarUrl = cloudinaryService.uploadImage(avatar, "shoppy_avatars");
+            user.setAvatarUrl(newAvatarUrl);
+        }
+
+        user.setUpdatedAt(LocalDateTime.now());
+        return userRepository.save(user);
+    }
+
+    /**
+     * Đổi mật khẩu tài khoản người dùng.
+     */
+    @Transactional
+    public void changePassword(String email, ChangePasswordRequest request) {
+        User user = getUserByEmail(email);
+
+        if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
+            throw new AppException(ErrorCode.WRONG_PASSWORD);
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setUpdatedAt(LocalDateTime.now());
+        userRepository.save(user);
+    }
 }

@@ -2,6 +2,7 @@ package com.shoppy.backend.domain.request.product;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
@@ -17,6 +18,9 @@ public class CreateProductRequest {
     private String name;
 
     private String description;
+
+    @NotNull(message = "Danh mục sản phẩm không được để trống")
+    private Long categoryId;
 
     // Dùng cho trường hợp sản phẩm KHÔNG CÓ BIẾN THỂ (Sản phẩm đơn)
     private BigDecimal basePrice;

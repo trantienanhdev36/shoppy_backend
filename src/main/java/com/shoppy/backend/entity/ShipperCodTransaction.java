@@ -1,6 +1,7 @@
 package com.shoppy.backend.entity;
 
 import com.shoppy.backend.common.enums.ShipperTransactionType;
+import com.shoppy.backend.common.enums.TransactionStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -24,7 +25,7 @@ public class ShipperCodTransaction extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "order_id", nullable = false)
+    @Column(name = "order_id")
     private Long orderId;
 
     @Column(name = "shipper_id", nullable = false)
@@ -33,6 +34,11 @@ public class ShipperCodTransaction extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "type", nullable = false, length = 20)
     private ShipperTransactionType type;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 50)
+    @Builder.Default
+    private TransactionStatus status = TransactionStatus.COMPLETED;
 
     // Tổng tiền COD (totalAmount + shippingFee)
     @Column(name = "amount", nullable = false, precision = 15, scale = 2)

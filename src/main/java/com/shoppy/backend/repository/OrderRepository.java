@@ -39,6 +39,18 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     List<Order> findByStatus(OrderStatus status);
 
+    /** Lấy đơn hàng theo trạng thái (toàn sàn cho Admin) — có phân trang */
+    Page<Order> findByStatus(OrderStatus status, Pageable pageable);
+
+    /** Lấy đơn hàng của Shop theo trạng thái — có phân trang */
+    Page<Order> findByShopIdAndStatus(Long shopId, OrderStatus status, Pageable pageable);
+
+    /** Lấy toàn bộ đơn hàng của Shop — có phân trang */
+    Page<Order> findByShopId(Long shopId, Pageable pageable);
+
+    /** Lấy danh sách đơn hàng của Shop theo trạng thái (không phân trang) */
+    List<Order> findByShopIdAndStatusOrderByCreatedAtDesc(Long shopId, OrderStatus status);
+
     /** Lấy danh sách đơn có sẵn để nhận (READY_TO_SHIP) theo hãng vận chuyển */
     List<Order> findByShippingCompanyIdAndStatusOrderByCreatedAtAsc(Long shippingCompanyId, OrderStatus status);
 
@@ -50,4 +62,10 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     /** Lấy tất cả đơn của shipper (mọi trạng thái) */
     List<Order> findByShipperIdOrderByCreatedAtDesc(Long shipperId);
+
+    /** Đếm tổng số đơn hàng của khách hàng */
+    long countByCustomerId(Long customerId);
+
+    /** Đếm tổng số đơn hàng của Cửa hàng */
+    long countByShopId(Long shopId);
 }

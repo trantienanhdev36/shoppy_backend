@@ -18,7 +18,13 @@ public class ProductDetailResponseDTO {
     private Long id;
     private String name;
     private String description;
+    private Long shopId;
+    private String shopName;
+    private Long categoryId;
+    private String categoryName;
+    private Integer totalStock;
     private boolean hasVariants;
+    private Boolean isActive;
     private List<ProductImageDTO> images; // Ảnh sản phẩm gốc (nếu không có biến thể)
     private List<ProductVariantDTO> variants; // Danh sách biến thể (nếu hasVariants = true)
 
@@ -27,22 +33,42 @@ public class ProductDetailResponseDTO {
 
         List<ProductVariantDTO> variantDTOs = null;
         List<ProductImageDTO> imageDTOs = null;
+        Integer totalStock = null;
 
-        if (product.isHasVariants() && product.getVariants() != null && !product.getVariants().isEmpty()) {
+        if (product.getVariants() != null && !product.getVariants().isEmpty()) {
+            totalStock = product.getVariants().stream()
+                    .mapToInt(v -> v.getStockQuantity() != null ? v.getStockQuantity() : 0)
+                    .sum();
+        }
+
+        if (product.getVariants() != null && !product.getVariants().isEmpty()) {
             variantDTOs = product.getVariants().stream()
                     .map(ProductVariantDTO::fromEntity)
                     .toList();
-        } else if (product.getImages() != null) {
+        }
+
+        if (product.getImages() != null && !product.getImages().isEmpty()) {
             imageDTOs = product.getImages().stream()
                     .map(ProductImageDTO::fromEntity)
                     .toList();
         }
 
+        Long categoryId = product.getCategory() != null ? product.getCategory().getId() : null;
+        String categoryName = product.getCategory() != null ? product.getCategory().getName() : null;
+        Long shopId = product.getShop() != null ? product.getShop().getId() : null;
+        String shopName = product.getShop() != null ? product.getShop().getName() : null;
+
         return ProductDetailResponseDTO.builder()
                 .id(product.getId())
                 .name(product.getName())
                 .description(product.getDescription())
+                .shopId(shopId)
+                .shopName(shopName)
+                .categoryId(categoryId)
+                .categoryName(categoryName)
+                .totalStock(totalStock)
                 .hasVariants(product.isHasVariants())
+                .isActive(product.getIsActive())
                 .images(imageDTOs)
                 .variants(variantDTOs)
                 .build();

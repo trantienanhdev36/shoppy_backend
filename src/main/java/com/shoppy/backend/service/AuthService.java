@@ -4,8 +4,10 @@ import com.shoppy.backend.common.enums.UserStatus;
 import com.shoppy.backend.common.exception.AppException;
 import com.shoppy.backend.common.exception.ErrorCode;
 import com.shoppy.backend.common.util.JwtUtils;
-import com.shoppy.backend.domain.response.auth.AuthResponse;
+import com.shoppy.backend.domain.request.auth.ForgotPasswordRequest;
 import com.shoppy.backend.domain.request.auth.LoginRequest;
+import com.shoppy.backend.domain.request.auth.ResetPasswordRequest;
+import com.shoppy.backend.domain.response.auth.AuthResponse;
 import com.shoppy.backend.domain.response.user.UserResponse;
 import com.shoppy.backend.entity.User;
 import com.shoppy.backend.entity.VerificationToken;
@@ -13,11 +15,13 @@ import com.shoppy.backend.repository.UserRepository;
 import com.shoppy.backend.repository.VerificationTokenRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.shoppy.backend.common.enums.NotificationType;
+import java.time.Duration;
 import java.time.LocalDateTime;
 
 @Service
@@ -29,6 +33,12 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtils jwtUtils;
     private final NotificationService notificationService;
+    private final StringRedisTemplate redisTemplate;
+    private final EmailService emailService;
+    private final VerificationTokenRepository tokenRepository;
+
+    private static final String RESET_PWD_OTP_PREFIX = "otp:reset_pwd:";
+    private static final String RESET_PWD_COOLDOWN_PREFIX = "cooldown:reset_pwd:";
 
     @Transactional(readOnly = true)
     public AuthResponse login(LoginRequest request) {
@@ -59,8 +69,6 @@ public class AuthService {
                 .user(userResponse)
                 .build();
     }
-
-    private final VerificationTokenRepository tokenRepository; //  Inject Repository lưu UUID Token
 
     @Transactional
     public boolean verifyAccount(String tokenStr) {
@@ -105,5 +113,65 @@ public class AuthService {
             log.error("Lỗi khi xác thực tài khoản: {}", e.getMessage());
             return false;
         }
+    }
+
+    public void forgotPassword(ForgotPasswordRequest request) {
+        // 1. Kiểm tra User có tồn tại không
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new AppException(ErrorCode.ACCOUNT_NOT_ACTIVATED);
+        }
+
+        // 2. Kiểm tra Cooldown chống spam gửi mã liên tục (60 giây)
+        String cooldownKey = RESET_PWD_COOLDOWN_PREFIX + request.getEmail();
+        Boolean hasCooldown = redisTemplate.hasKey(cooldownKey);
+        if (Boolean.TRUE.equals(hasCooldown)) {
+            throw new AppException(ErrorCode.OTP_COOLDOWN);
+        }
+
+        // 3. Sinh mã OTP ngẫu nhiên 6 chữ số
+        String otp = String.format("%06d", new java.security.SecureRandom().nextInt(1_000_000));
+
+        // 4. Lưu OTP và Cooldown vào Redis
+        String otpKey = RESET_PWD_OTP_PREFIX + request.getEmail();
+        redisTemplate.opsForValue().set(otpKey, otp, Duration.ofMinutes(5));
+        redisTemplate.opsForValue().set(cooldownKey, "1", Duration.ofSeconds(60));
+
+        // 5. Gửi email chứa mã OTP bất đồng bộ
+        emailService.sendOtpEmail(user.getEmail(), user.getFullName(), otp);
+
+        log.info("Đã tạo và gửi OTP đặt lại mật khẩu cho email: {}", user.getEmail());
+    }
+
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        // 1. Kiểm tra User có tồn tại không
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        // 2. Lấy OTP từ Redis và kiểm tra
+        String otpKey = RESET_PWD_OTP_PREFIX + request.getEmail();
+        String cachedOtp = redisTemplate.opsForValue().get(otpKey);
+
+        if (cachedOtp == null) {
+            throw new AppException(ErrorCode.EXPIRED_OTP);
+        }
+
+        if (!cachedOtp.equals(request.getOtp())) {
+            throw new AppException(ErrorCode.INVALID_OTP);
+        }
+
+        // 3. Cập nhật mật khẩu mới đã mã hóa BCrypt
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+
+        // 4. Xóa OTP và Cooldown khỏi Redis
+        redisTemplate.delete(otpKey);
+        String cooldownKey = RESET_PWD_COOLDOWN_PREFIX + request.getEmail();
+        redisTemplate.delete(cooldownKey);
+
+        log.info("Đặt lại mật khẩu thành công cho email: {}", user.getEmail());
     }
 }

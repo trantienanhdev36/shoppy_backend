@@ -1,11 +1,8 @@
 package com.shoppy.backend.controller;
 
 import com.shoppy.backend.common.dto.ApiResponse;
-import com.shoppy.backend.common.exception.AppException;
-import com.shoppy.backend.common.exception.ErrorCode;
 import com.shoppy.backend.domain.response.shipping.ShippingCompanyResponse;
-import com.shoppy.backend.entity.ShippingCompany;
-import com.shoppy.backend.repository.ShippingCompanyRepository;
+import com.shoppy.backend.service.ShippingCompanyService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -17,19 +14,16 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ShippingCompanyController {
 
-    private final ShippingCompanyRepository shippingCompanyRepository;
+    private final ShippingCompanyService shippingCompanyService;
 
     /**
      * GET /shipping-companies
-     * Lấy danh sách tất cả các hãng vận chuyển đang hoạt động (ACTIVE).
+     * Lấy danh sách tất cả các hãng vận chuyển đang hoạt động (ACTIVE) và chưa bị xóa.
      * Endpoint public (không cần đăng nhập).
      */
     @GetMapping
     public ResponseEntity<ApiResponse<List<ShippingCompanyResponse>>> getActiveShippingCompanies() {
-        List<ShippingCompany> companies = shippingCompanyRepository.findByStatusOrderByNameAsc("ACTIVE");
-        List<ShippingCompanyResponse> responses = companies.stream()
-                .map(ShippingCompanyResponse::fromEntity)
-                .toList();
+        List<ShippingCompanyResponse> responses = shippingCompanyService.getAllActiveShippingCompanies();
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách đơn vị vận chuyển thành công!", responses));
     }
 
@@ -40,9 +34,7 @@ public class ShippingCompanyController {
      */
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<ShippingCompanyResponse>> getShippingCompanyById(@PathVariable Long id) {
-        ShippingCompany company = shippingCompanyRepository.findById(id)
-                .orElseThrow(() -> new AppException(ErrorCode.SHIPPING_COMPANY_NOT_FOUND));
-        return ResponseEntity.ok(ApiResponse.success("Lấy thông tin đơn vị vận chuyển thành công!",
-                ShippingCompanyResponse.fromEntity(company)));
+        ShippingCompanyResponse response = shippingCompanyService.getShippingCompanyById(id);
+        return ResponseEntity.ok(ApiResponse.success("Lấy thông tin đơn vị vận chuyển thành công!", response));
     }
 }

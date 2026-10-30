@@ -3,6 +3,7 @@ package com.shoppy.backend.service;
 import com.shoppy.backend.common.enums.OrderStatus;
 import com.shoppy.backend.common.enums.ShipperTransactionType;
 import com.shoppy.backend.common.enums.TrackingStatus;
+import com.shoppy.backend.common.enums.TransactionStatus;
 import com.shoppy.backend.common.enums.UserRole;
 import com.shoppy.backend.common.exception.AppException;
 import com.shoppy.backend.common.exception.ErrorCode;
@@ -144,6 +145,7 @@ public class ShipperService {
                     .orderId(order.getId())
                     .shipperId(shipper.getId())
                     .type(ShipperTransactionType.COLLECTION)
+                    .status(TransactionStatus.COMPLETED)
                     .amount(codAmount)
                     .note("Thu tiền mặt COD đơn hàng #" + orderId)
                     .build();
@@ -240,6 +242,7 @@ public class ShipperService {
         ShipperCodTransaction remittance = ShipperCodTransaction.builder()
                 .shipperId(shipper.getId())
                 .type(ShipperTransactionType.REMITTANCE)
+                .status(TransactionStatus.COMPLETED)
                 .amount(request.getAmount())
                 .note(note)
                 .build();
@@ -327,14 +330,19 @@ public class ShipperService {
         if (shipper.getShippingCompanyId() == null) {
             throw new AppException(ErrorCode.SHIPPING_COMPANY_REQUIRED);
         }
+
+        ShippingCompany company = shippingCompanyRepository.findByIdAndIsDeletedFalse(shipper.getShippingCompanyId())
+                .orElseThrow(() -> new AppException(ErrorCode.SHIPPING_COMPANY_NOT_FOUND));
+
+        if (!"ACTIVE".equalsIgnoreCase(company.getStatus())) {
+            throw new AppException(ErrorCode.SHIPPING_COMPANY_NOT_ACTIVE);
+        }
     }
 
     private OrderResponse.OrderDetailResponse buildDetailResponse(Order order) {
         List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
         List<OrderTracking> trackings = orderTrackingRepository.findByOrderIdOrderByCreatedAtAsc(order.getId());
-        order.setItems(items);
-        order.setTrackings(trackings);
-        return OrderResponse.OrderDetailResponse.fromEntity(order);
+        return OrderResponse.OrderDetailResponse.fromEntity(order, items, trackings);
     }
 
     private void addTracking(Order order, TrackingStatus status, String description, Long updatedBy) {

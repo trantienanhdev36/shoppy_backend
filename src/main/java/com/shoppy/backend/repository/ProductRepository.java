@@ -22,6 +22,7 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
                    MIN(variant.price) AS minPrice,
                    MAX(variant.price) AS maxPrice
             FROM ProductVariant variant
+            WHERE variant.isDeleted = false
             GROUP BY variant.product.id
             """)
     List<ProductPriceRange> findProductPriceRanges();
@@ -36,6 +37,7 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
                    MAX(variant.price) AS maxPrice
             FROM ProductVariant variant
             WHERE variant.product.id IN :productIds
+              AND variant.isDeleted = false
             GROUP BY variant.product.id
             """)
     List<ProductPriceRange> findProductPriceRangesByIds(@Param("productIds") List<Long> productIds);
@@ -45,4 +47,88 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
         BigDecimal getMinPrice();
         BigDecimal getMaxPrice();
     }
+
+    /** Lấy tất cả sản phẩm đang hoạt động trên sàn (chưa bị xóa, đang active, Shop ACTIVE và Danh mục ACTIVE) */
+    @Query("""
+            SELECT p FROM Product p
+            WHERE p.isDeleted = false
+              AND p.isActive = true
+              AND p.shop.isDeleted = false
+              AND p.shop.status = 'ACTIVE'
+              AND (p.category IS NULL OR (p.category.isDeleted = false AND p.category.status = 'ACTIVE'))
+            """)
+    Page<Product> findAllActive(Pageable pageable);
+
+    /** Lấy tất cả sản phẩm của Shop (chưa bị xóa) */
+    @Query("""
+            SELECT p FROM Product p
+            WHERE p.shop.id = :shopId
+              AND p.isDeleted = false
+            """)
+    Page<Product> findByShopId(@Param("shopId") Long shopId, Pageable pageable);
+
+    /** Lấy các sản phẩm đang hoạt động của Shop dành cho khách xem (chưa bị xóa, đang active, Shop ACTIVE và Danh mục ACTIVE) */
+    @Query("""
+            SELECT p FROM Product p
+            WHERE p.shop.id = :shopId
+              AND p.isDeleted = false
+              AND p.isActive = true
+              AND p.shop.isDeleted = false
+              AND p.shop.status = 'ACTIVE'
+              AND (p.category IS NULL OR (p.category.isDeleted = false AND p.category.status = 'ACTIVE'))
+            """)
+    Page<Product> findActiveByShopId(@Param("shopId") Long shopId, Pageable pageable);
+
+    /** Lấy sản phẩm của Shop theo từ khóa tìm kiếm tên */
+    @Query("""
+            SELECT p FROM Product p
+            WHERE p.shop.id = :shopId
+              AND p.isDeleted = false
+              AND LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+            """)
+    Page<Product> findByShopIdAndKeyword(@Param("shopId") Long shopId, @Param("keyword") String keyword, Pageable pageable);
+
+    /** Lấy sản phẩm CÒN HÀNG của Shop (tổng tồn kho > 0) */
+    @Query("""
+            SELECT p FROM Product p
+            WHERE p.shop.id = :shopId
+              AND p.isDeleted = false
+              AND (SELECT COALESCE(SUM(v.stockQuantity), 0) FROM ProductVariant v WHERE v.product = p AND v.isDeleted = false) > 0
+            """)
+    Page<Product> findInStockByShopId(@Param("shopId") Long shopId, Pageable pageable);
+
+    /** Lấy sản phẩm CÒN HÀNG của Shop theo từ khóa (tổng tồn kho > 0) */
+    @Query("""
+            SELECT p FROM Product p
+            WHERE p.shop.id = :shopId
+              AND p.isDeleted = false
+              AND LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              AND (SELECT COALESCE(SUM(v.stockQuantity), 0) FROM ProductVariant v WHERE v.product = p AND v.isDeleted = false) > 0
+            """)
+    Page<Product> findInStockByShopIdAndKeyword(@Param("shopId") Long shopId, @Param("keyword") String keyword, Pageable pageable);
+
+    /** Lấy sản phẩm HẾT HÀNG của Shop (tổng tồn kho <= 0) */
+    @Query("""
+            SELECT p FROM Product p
+            WHERE p.shop.id = :shopId
+              AND p.isDeleted = false
+              AND (SELECT COALESCE(SUM(v.stockQuantity), 0) FROM ProductVariant v WHERE v.product = p AND v.isDeleted = false) <= 0
+            """)
+    Page<Product> findOutOfStockByShopId(@Param("shopId") Long shopId, Pageable pageable);
+
+    /** Lấy sản phẩm HẾT HÀNG của Shop theo từ khóa (tổng tồn kho <= 0) */
+    @Query("""
+            SELECT p FROM Product p
+            WHERE p.shop.id = :shopId
+              AND p.isDeleted = false
+              AND LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              AND (SELECT COALESCE(SUM(v.stockQuantity), 0) FROM ProductVariant v WHERE v.product = p AND v.isDeleted = false) <= 0
+            """)
+    Page<Product> findOutOfStockByShopIdAndKeyword(@Param("shopId") Long shopId, @Param("keyword") String keyword, Pageable pageable);
+
+    /** Đếm tổng số sản phẩm còn kinh doanh của Shop */
+    long countByShopIdAndIsDeletedFalse(Long shopId);
+
+    /** Kiểm tra xem danh mục có sản phẩm nào đang kinh doanh không */
+    boolean existsByCategoryIdAndIsDeletedFalse(Long categoryId);
 }

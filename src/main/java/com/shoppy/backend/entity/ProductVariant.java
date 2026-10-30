@@ -32,4 +32,16 @@ public class ProductVariant extends BaseEntity {
 
     @Column(name = "image_url", length = 500)
     private String imageUrl; // Ảnh riêng cho từng biến thể
+
+    @Column(name = "is_active", nullable = false, columnDefinition = "boolean default true")
+    private Boolean isActive = true;
+
+    @PrePersist
+    @Override
+    protected void onCreate() {
+        super.onCreate();
+        if (this.isActive == null) {
+            this.isActive = true;
+        }
+    }
 }

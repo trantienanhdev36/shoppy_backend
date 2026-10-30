@@ -2,7 +2,9 @@ package com.shoppy.backend.controller;
 
 import com.shoppy.backend.common.dto.ApiResponse;
 import com.shoppy.backend.domain.response.auth.AuthResponse;
+import com.shoppy.backend.domain.request.auth.ForgotPasswordRequest;
 import com.shoppy.backend.domain.request.auth.LoginRequest;
+import com.shoppy.backend.domain.request.auth.ResetPasswordRequest;
 import com.shoppy.backend.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -88,5 +90,17 @@ public class AuthController {
     public ResponseEntity<ApiResponse<Void>> logout() {
         // Logic logout...
         return ResponseEntity.ok(ApiResponse.success("Đăng xuất thành công"));
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponse<Void>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        authService.forgotPassword(request);
+        return ResponseEntity.ok(ApiResponse.success("Mã OTP đặt lại mật khẩu đã được gửi về email của bạn."));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request);
+        return ResponseEntity.ok(ApiResponse.success("Đặt lại mật khẩu thành công. Vui lòng đăng nhập bằng mật khẩu mới."));
     }
 }

@@ -3,6 +3,7 @@ package com.shoppy.backend.controller;
 import com.shoppy.backend.common.dto.ApiResponse;
 import com.shoppy.backend.common.dto.PagedResponse;
 import com.shoppy.backend.common.enums.OrderStatus;
+import com.shoppy.backend.domain.request.order.CancelOrderRequest;
 import com.shoppy.backend.domain.request.order.CreateOrderRequest;
 import com.shoppy.backend.domain.response.order.OrderResponse;
 import com.shoppy.backend.repository.UserRepository;
@@ -73,15 +74,16 @@ public class OrderController {
 
     /**
      * GET /orders/{id}
-     * Khách hàng xem chi tiết một đơn hàng của mình.
+     * Xem chi tiết một đơn hàng (Khách xem đơn mình, Seller xem đơn Shop mình, Admin xem toàn quyền).
      */
     @GetMapping("/{id}")
-    public ResponseEntity<OrderResponse.OrderDetailResponse> getOrderDetail(
+    public ResponseEntity<ApiResponse<OrderResponse.OrderDetailResponse>> getOrderDetail(
             @PathVariable Long id,
             Authentication authentication) {
 
         String email = authentication.getName();
-        return ResponseEntity.ok(orderService.getOrderDetail(id, email));
+        OrderResponse.OrderDetailResponse response = orderService.getOrderDetail(id, email);
+        return ResponseEntity.ok(ApiResponse.success("Lấy thông tin chi tiết đơn hàng thành công!", response));
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -89,28 +91,59 @@ public class OrderController {
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * GET /orders/manage?status=PROCESSING
-     * Seller / Admin xem danh sách đơn hàng theo trạng thái.
+     * GET /orders/manage?status=PROCESSING&page=0&size=10
+     * Seller xem danh sách đơn hàng thuộc Shop của mình (Admin xem toàn bộ hệ thống).
+     * Hỗ trợ lọc theo trạng thái và phân trang (last page clamp).
      */
     @GetMapping("/manage")
-    public ResponseEntity<List<OrderResponse.OrderSummaryResponse>> getOrdersByStatus(
-            @RequestParam(defaultValue = "PROCESSING") OrderStatus status) {
+    public ResponseEntity<ApiResponse<PagedResponse<OrderResponse.OrderSummaryResponse>>> getManageOrders(
+            @RequestParam(required = false) OrderStatus status,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "10") int size,
+            Authentication authentication) {
 
-        return ResponseEntity.ok(orderService.getOrdersByStatus(status));
+        String email = authentication.getName();
+        PagedResponse<OrderResponse.OrderSummaryResponse> response =
+                orderService.getManageOrders(email, status, page, size);
+
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách đơn hàng quản lý thành công!", response));
     }
 
     /**
      * PUT /orders/{id}/ready-to-ship
      * Seller xác nhận đã đóng gói, sẵn sàng giao cho shipper.
+     * Kiểm tra bắt buộc: Đơn hàng phải thuộc Shop của Seller đang đăng nhập (hoặc Admin).
      */
     @PutMapping("/{id}/ready-to-ship")
-    public ResponseEntity<OrderResponse.OrderDetailResponse> markReadyToShip(
+    public ResponseEntity<ApiResponse<OrderResponse.OrderDetailResponse>> markReadyToShip(
             @PathVariable Long id,
             Authentication authentication) {
 
-        // Lấy sellerId từ token (sẽ cần extend để lấy userId từ UserDetails)
-        Long sellerId = getUserIdFromAuth(authentication);
-        return ResponseEntity.ok(orderService.markReadyToShip(id, sellerId));
+        String email = authentication.getName();
+        OrderResponse.OrderDetailResponse response = orderService.markReadyToShip(id, email);
+        return ResponseEntity.ok(ApiResponse.success("Xác nhận đóng gói hoàn tất! Đơn hàng sẵn sàng để shipper lấy hàng.", response));
+    }
+
+    /**
+     * PUT /orders/{id}/cancel
+     * Hủy đơn hàng:
+     * - Khách hàng (CUSTOMER): Hủy đơn của mình khi Shop chưa chuẩn bị xong (trước READY_TO_SHIP).
+     * - Người bán (SELLER) / Admin: Hủy đơn thuộc Shop của mình (hết hàng đột xuất).
+     * Tự động hoàn lại tồn kho và hoàn tiền vào ví nếu đã thanh toán.
+     */
+    @PutMapping("/{id}/cancel")
+    public ResponseEntity<ApiResponse<OrderResponse.OrderDetailResponse>> cancelOrder(
+            @PathVariable Long id,
+            @Valid @RequestBody(required = false) CancelOrderRequest request,
+            Authentication authentication) {
+
+        String email = authentication.getName();
+        String reason = (request != null && request.getReason() != null && !request.getReason().trim().isEmpty())
+                ? request.getReason().trim()
+                : "Khách hàng hủy đơn hàng";
+
+        OrderResponse.OrderDetailResponse response = orderService.cancelOrder(id, email, reason);
+        return ResponseEntity.ok(ApiResponse.success("Hủy đơn hàng thành công!", response));
     }
 
     // ─────────────────────────────────────────────────────────────────────────

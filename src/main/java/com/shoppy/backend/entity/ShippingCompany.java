@@ -3,6 +3,7 @@ package com.shoppy.backend.entity;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.experimental.SuperBuilder;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -13,7 +14,7 @@ import java.util.List;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
+@SuperBuilder
 public class ShippingCompany extends BaseEntity {
 
     @Id
@@ -33,7 +34,7 @@ public class ShippingCompany extends BaseEntity {
     @Builder.Default
     private BigDecimal baseFee = BigDecimal.ZERO;
 
-    @Column(name = "status", nullable = false, length = 20)
+    @Column(name = "status", nullable = false, length = 20, columnDefinition = "VARCHAR(20) DEFAULT 'ACTIVE'")
     @Builder.Default
     private String status = "ACTIVE";
 

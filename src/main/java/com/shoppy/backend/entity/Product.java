@@ -7,6 +7,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -28,6 +29,9 @@ public class Product extends BaseEntity {
     @Column(name = "has_variants", nullable = false)
     private boolean hasVariants = false;
 
+    @Column(name = "is_active", nullable = false, columnDefinition = "boolean default true")
+    private Boolean isActive = true;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "shop_id", nullable = false)
     private Shop shop;
@@ -41,9 +45,17 @@ public class Product extends BaseEntity {
     private Category category;
 
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<ProductVariant> variants;
+    private List<ProductVariant> variants = new ArrayList<>();
 
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<ProductImage> images;
+    private List<ProductImage> images = new ArrayList<>();
 
+    @PrePersist
+    @Override
+    protected void onCreate() {
+        super.onCreate();
+        if (this.isActive == null) {
+            this.isActive = true;
+        }
+    }
 }

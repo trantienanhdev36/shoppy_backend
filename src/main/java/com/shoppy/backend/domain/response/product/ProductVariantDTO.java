@@ -21,6 +21,8 @@ public class ProductVariantDTO {
     private String sku;
     private BigDecimal price;
     private int stockQuantity;
+    private String imageUrl;
+    private Boolean isActive;
     private List<ProductImageDTO> images;
 
     public static ProductVariantDTO fromEntity(ProductVariant variant) {
@@ -37,6 +39,8 @@ public class ProductVariantDTO {
                 .sku(variant.getSku())
                 .price(variant.getPrice())
                 .stockQuantity(variant.getStockQuantity())
+                .imageUrl(variant.getImageUrl())
+                .isActive(variant.getIsActive() != null ? variant.getIsActive() : true)
                 .images(images)
                 .build();
     }

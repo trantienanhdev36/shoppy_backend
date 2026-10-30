@@ -4,6 +4,7 @@ import com.shoppy.backend.common.enums.OrderStatus;
 import com.shoppy.backend.common.enums.PaymentMethod;
 import com.shoppy.backend.common.enums.ShipperTransactionType;
 import com.shoppy.backend.common.enums.TrackingStatus;
+import com.shoppy.backend.common.enums.TransactionStatus;
 import com.shoppy.backend.entity.*;
 import lombok.Builder;
 import lombok.Data;
@@ -40,6 +41,7 @@ public class OrderResponse {
     public static class OrderDetailResponse {
         private Long id;
         private Long customerId;
+        private Long shopId;
         private Long shippingCompanyId;
         private PaymentMethod paymentMethod;
         private OrderStatus status;
@@ -56,10 +58,19 @@ public class OrderResponse {
         private List<OrderItemResponse> items;
         private List<OrderTrackingResponse> trackings;
 
-        public static OrderDetailResponse fromEntity(Order order) {
+        public static OrderDetailResponse fromEntity(Order order, List<OrderItem> items, List<OrderTracking> trackings) {
+            List<OrderItemResponse> itemResponses = (items != null)
+                    ? items.stream().map(OrderItemResponse::fromEntity).collect(Collectors.toList())
+                    : (order.getItems() != null ? order.getItems().stream().map(OrderItemResponse::fromEntity).collect(Collectors.toList()) : List.of());
+
+            List<OrderTrackingResponse> trackingResponses = (trackings != null)
+                    ? trackings.stream().map(OrderTrackingResponse::fromEntity).collect(Collectors.toList())
+                    : (order.getTrackings() != null ? order.getTrackings().stream().map(OrderTrackingResponse::fromEntity).collect(Collectors.toList()) : List.of());
+
             return OrderDetailResponse.builder()
                     .id(order.getId())
                     .customerId(order.getCustomerId())
+                    .shopId(order.getShopId())
                     .shippingCompanyId(order.getShippingCompanyId())
                     .paymentMethod(order.getPaymentMethod())
                     .status(order.getStatus())
@@ -73,13 +84,13 @@ public class OrderResponse {
                     .shipperId(order.getShipperId())
                     .createdAt(order.getCreatedAt())
                     .updatedAt(order.getUpdatedAt())
-                    .items(order.getItems().stream()
-                            .map(OrderItemResponse::fromEntity)
-                            .collect(Collectors.toList()))
-                    .trackings(order.getTrackings().stream()
-                            .map(OrderTrackingResponse::fromEntity)
-                            .collect(Collectors.toList()))
+                    .items(itemResponses)
+                    .trackings(trackingResponses)
                     .build();
+        }
+
+        public static OrderDetailResponse fromEntity(Order order) {
+            return fromEntity(order, null, null);
         }
     }
 
@@ -88,6 +99,7 @@ public class OrderResponse {
     @Builder
     public static class OrderSummaryResponse {
         private Long id;
+        private Long shopId;
         private OrderStatus status;
         private PaymentMethod paymentMethod;
         private BigDecimal totalAmount;
@@ -100,6 +112,7 @@ public class OrderResponse {
         public static OrderSummaryResponse fromEntity(Order order) {
             return OrderSummaryResponse.builder()
                     .id(order.getId())
+                    .shopId(order.getShopId())
                     .status(order.getStatus())
                     .paymentMethod(order.getPaymentMethod())
                     .totalAmount(order.getTotalAmount())
@@ -168,6 +181,7 @@ public class OrderResponse {
         private Long orderId;
         private Long shipperId;
         private ShipperTransactionType type;
+        private TransactionStatus status;
         private BigDecimal amount;
         private String note;
         private LocalDateTime createdAt;
@@ -178,6 +192,7 @@ public class OrderResponse {
                     .orderId(tx.getOrderId())
                     .shipperId(tx.getShipperId())
                     .type(tx.getType())
+                    .status(tx.getStatus())
                     .amount(tx.getAmount())
                     .note(tx.getNote())
                     .createdAt(tx.getCreatedAt())

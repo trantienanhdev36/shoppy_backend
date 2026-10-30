@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -20,4 +21,14 @@ public interface ProductVariantRepository extends JpaRepository<ProductVariant, 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT pv FROM ProductVariant pv WHERE pv.id = :id")
     Optional<ProductVariant> findByIdWithLock(@Param("id") Long id);
+
+    /**
+     * Lấy danh sách biến thể chưa bị xóa của một sản phẩm.
+     */
+    List<ProductVariant> findByProductIdAndIsDeletedFalseOrderByIdAsc(Long productId);
+
+    /**
+     * Đếm số lượng biến thể chưa bị xóa của một sản phẩm.
+     */
+    long countByProductIdAndIsDeletedFalse(Long productId);
 }

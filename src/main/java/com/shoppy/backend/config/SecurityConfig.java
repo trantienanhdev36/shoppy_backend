@@ -47,16 +47,25 @@ public class SecurityConfig {
                 // 2. Phân quyền Endpoint theo Role và đường dẫn
                 .authorizeHttpRequests(auth -> auth
                         // Cho phép truy cập tự do không cần token
-                        .requestMatchers("/users/register", "/auth/login", "/products/raw", "/auth/verify").permitAll()
+                        .requestMatchers("/users/register", "/auth/login", "/products/raw", "/auth/verify", "/auth/forgot-password", "/auth/reset-password").permitAll()
                         .requestMatchers(HttpMethod.GET, "/products/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/categories/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/shipping-companies/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/products/**").hasRole("SELLER")
+                        .requestMatchers(HttpMethod.PUT, "/products/**").hasRole("SELLER")
+                        .requestMatchers(HttpMethod.PATCH, "/products/**").hasRole("SELLER")
+                        .requestMatchers(HttpMethod.DELETE, "/products/**").hasRole("SELLER")
 
                         // Phân quyền dành riêng cho Admin
                         .requestMatchers("/admin/**").hasRole("ADMIN")
 
-                        // Phân quyền cho Seller / Quản lý Shop
+                        // Phân quyền cho Shop
+                        .requestMatchers(HttpMethod.GET, "/shops/me").hasRole("SELLER")
+                        .requestMatchers(HttpMethod.PUT, "/shops/me").hasRole("SELLER")
+                        .requestMatchers(HttpMethod.GET, "/shops/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/shops/*/products").permitAll()
                         .requestMatchers("/shops/**").hasRole("SELLER")
+                        .requestMatchers("/seller/**").hasRole("SELLER")
 
                         // ── ORDER ENDPOINTS ────────────────────────────────
                         // Mọi user đã đăng nhập đều có thể đặt & xem đơn hàng
@@ -67,6 +76,7 @@ public class SecurityConfig {
                         // SELLER / ADMIN: Quản lý đơn hàng
                         .requestMatchers(HttpMethod.GET, "/orders/manage").hasRole("SELLER")
                         .requestMatchers(HttpMethod.PUT, "/orders/*/ready-to-ship").hasRole("SELLER")
+                        .requestMatchers(HttpMethod.PUT, "/orders/*/cancel").authenticated()
 
                         // SHIPPER: Nhận đơn, giao hàng, xem danh sách giao
                         .requestMatchers(HttpMethod.PUT, "/orders/*/assign-shipper").hasRole("SHIPPER")

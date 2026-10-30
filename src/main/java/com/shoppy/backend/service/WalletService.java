@@ -1,7 +1,12 @@
 package com.shoppy.backend.service;
 
+import com.shoppy.backend.common.dto.PagedResponse;
 import com.shoppy.backend.common.enums.NotificationType;
+import com.shoppy.backend.common.exception.AppException;
+import com.shoppy.backend.common.exception.ErrorCode;
+import com.shoppy.backend.common.util.PaginationUtils;
 import com.shoppy.backend.domain.response.user.UserResponse;
+import com.shoppy.backend.domain.response.wallet.WalletTransactionResponse;
 import com.shoppy.backend.entity.User;
 import com.shoppy.backend.entity.WalletDeposit;
 import com.shoppy.backend.entity.WalletTransaction;
@@ -12,6 +17,7 @@ import com.shoppy.backend.repository.UserRepository;
 import com.shoppy.backend.repository.WalletTransactionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,7 +44,7 @@ public class WalletService {
     @Transactional
     public UserResponse.WalletDepositResponse createDepositRequest(String email, BigDecimal amount) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         WalletDeposit deposit = WalletDeposit.builder()
                 .userId(user.getId())
@@ -58,6 +64,27 @@ public class WalletService {
         enqueueAfterCommit(WALLET_QUEUE_KEY, savedTransaction.getId());
 
         return UserResponse.WalletDepositResponse.fromEntity(savedTransaction);
+    }
+
+    /**
+     * Lấy danh sách lịch sử giao dịch ví của user hiện tại (có phân trang và lọc theo type).
+     */
+    @Transactional(readOnly = true)
+    public PagedResponse<WalletTransactionResponse> getMyWalletTransactions(
+            String email, WalletTransactionType type, int page, int size) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        return PaginationUtils.fetchWithClamp(
+                page,
+                size,
+                "createdAt",
+                Sort.Direction.DESC,
+                pageable -> type != null
+                        ? walletTransactionRepository.findByUserIdAndTypeAndIsDeletedFalse(user.getId(), type, pageable)
+                        : walletTransactionRepository.findByUserIdAndIsDeletedFalse(user.getId(), pageable),
+                WalletTransactionResponse::fromEntity
+        );
     }
 
     @Transactional
@@ -137,6 +164,46 @@ public class WalletService {
 
         log.info("[WalletQueue] Giao dịch [{}] {} hoàn tất. Số dư mới: {}",
                 transactionId, transaction.getType(), newBalance);
+    }
+
+    /**
+     * Hoàn tiền cho đơn hàng bị hủy vào ví của khách hàng.
+     * Cập nhật số dư, lưu bản ghi giao dịch CREDIT và gửi thông báo cho khách.
+     *
+     * @param customerId ID khách hàng nhận hoàn tiền
+     * @param orderId    ID đơn hàng bị hủy
+     * @param amount     Tổng số tiền hoàn (bao gồm tiền hàng + phí ship nếu có)
+     * @param reason     Lý do hủy đơn
+     */
+    @Transactional
+    public void refundOrder(Long customerId, Long orderId, BigDecimal amount, String reason) {
+        User user = userRepository.findByIdWithLock(customerId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        BigDecimal currentBalance = user.getBalance() != null ? user.getBalance() : BigDecimal.ZERO;
+        BigDecimal newBalance = currentBalance.add(amount);
+        user.setBalance(newBalance);
+        userRepository.save(user);
+
+        WalletTransaction transaction = new WalletTransaction();
+        transaction.setUserId(customerId);
+        transaction.setAmount(amount);
+        transaction.setType(WalletTransactionType.CREDIT);
+        transaction.setStatus(TransactionStatus.COMPLETED);
+        walletTransactionRepository.save(transaction);
+
+        // Bắn thông báo hoàn tiền vào ví
+        notificationService.sendNotification(
+                user.getId(),
+                NotificationType.WALLET_DEPOSIT,
+                "Hoàn tiền đơn hàng #" + orderId,
+                String.format("Bạn đã được hoàn %,.0f VND vào ví Shoppy cho đơn hàng #%d. Lý do: %s. Số dư hiện tại: %,.0f VND.",
+                        amount.doubleValue(), orderId, reason, newBalance.doubleValue()),
+                orderId
+        );
+
+        log.info("[WalletService] Đã hoàn tiền cho đơn [{}] vào ví user [{}]: {} VND. Số dư mới: {}",
+                orderId, customerId, amount, newBalance);
     }
 
     @Transactional

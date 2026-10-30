@@ -3,7 +3,9 @@ package com.shoppy.backend.controller;
 import com.shoppy.backend.common.dto.ApiResponse;
 import com.shoppy.backend.domain.request.shipper.RegisterShipperRequest;
 import com.shoppy.backend.domain.request.shop.RegisterShopRequest;
+import com.shoppy.backend.domain.request.user.ChangePasswordRequest;
 import com.shoppy.backend.domain.request.user.RegisterRequest;
+import com.shoppy.backend.domain.request.user.UpdateProfileRequest;
 import com.shoppy.backend.domain.response.shipper.ShipperResponse;
 import com.shoppy.backend.domain.response.shop.ShopResponse;
 import com.shoppy.backend.domain.response.user.UserResponse;
@@ -51,6 +53,58 @@ public class UserController {
 
         return ResponseEntity.ok(
                 ApiResponse.success("Lấy thông tin người dùng thành công!", UserResponse.fromEntity(user))
+        );
+    }
+
+    /**
+     * PUT /users/profile (Multipart Form Data)
+     * Cập nhật thông tin hồ sơ cá nhân kèm upload file avatar mới.
+     */
+    @PutMapping(value = "/profile", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<UserResponse>> updateProfileMultipart(
+            Authentication authentication,
+            @Valid @ModelAttribute UpdateProfileRequest request,
+            @RequestParam(value = "avatar", required = false) MultipartFile avatar
+    ) {
+        String email = authentication.getName();
+        User updatedUser = userService.updateProfile(email, request, avatar);
+
+        return ResponseEntity.ok(
+                ApiResponse.success("Cập nhật hồ sơ cá nhân thành công!", UserResponse.fromEntity(updatedUser))
+        );
+    }
+
+    /**
+     * PUT /users/profile (JSON)
+     * Cập nhật thông tin hồ sơ cá nhân (họ tên, số điện thoại) không upload avatar.
+     */
+    @PutMapping(value = "/profile", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<UserResponse>> updateProfileJson(
+            Authentication authentication,
+            @Valid @RequestBody UpdateProfileRequest request
+    ) {
+        String email = authentication.getName();
+        User updatedUser = userService.updateProfile(email, request, null);
+
+        return ResponseEntity.ok(
+                ApiResponse.success("Cập nhật hồ sơ cá nhân thành công!", UserResponse.fromEntity(updatedUser))
+        );
+    }
+
+    /**
+     * PUT /users/change-password
+     * Đổi mật khẩu tài khoản người dùng hiện tại.
+     */
+    @PutMapping("/change-password")
+    public ResponseEntity<ApiResponse<Void>> changePassword(
+            Authentication authentication,
+            @Valid @RequestBody ChangePasswordRequest request
+    ) {
+        String email = authentication.getName();
+        userService.changePassword(email, request);
+
+        return ResponseEntity.ok(
+                ApiResponse.success("Đổi mật khẩu thành công!", null)
         );
     }
 

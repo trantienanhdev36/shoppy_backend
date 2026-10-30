@@ -46,4 +46,8 @@ public class Category extends BaseEntity {
     @Column(name = "display_order", nullable = false)
     @Builder.Default
     private Integer displayOrder = 0;
+
+    @Column(name = "status", nullable = false, length = 20, columnDefinition = "VARCHAR(20) DEFAULT 'ACTIVE'")
+    @Builder.Default
+    private String status = "ACTIVE";
 }
