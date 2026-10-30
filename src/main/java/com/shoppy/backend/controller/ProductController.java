@@ -210,20 +210,22 @@ public class ProductController {
     }
 
     /**
-     * Lấy danh sách sản phẩm có phân trang.
+     * Lấy danh sách sản phẩm có phân trang và hỗ trợ tìm kiếm tương đối theo tên sản phẩm.
      *
+     * @param search Từ khóa tìm kiếm tương đối theo tên sản phẩm (không bắt buộc)
      * @param page Số trang (0-indexed, mặc định 0)
-     * @param size Số bản ghi mỗi trang (mặc định 5)
+     * @param size Số bản ghi mỗi trang (mặc định 2)
      *
-     * Ví dụ: GET /products/getAll?page=0&size=5
-     *        GET /products/getAll?page=1&size=10
+     * Ví dụ: GET /products/getAll?search=ao&page=0&size=5
+     *        GET /products/getAll?page=0&size=5
      */
     @GetMapping(value = "/getAll")
     public ResponseEntity<ApiResponse<PagedResponse<ProductResponseDTO>>> getAllProducts(
+            @RequestParam(value = "search", required = false) String search,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "2") int size
     ) {
-        PagedResponse<ProductResponseDTO> response = productService.getAllProducts(page, size);
+        PagedResponse<ProductResponseDTO> response = productService.getAllProducts(search, page, size);
 
         return ResponseEntity.ok(
                 ApiResponse.success("Lấy danh sách sản phẩm thành công!", response)

@@ -164,6 +164,7 @@ src/main/java/com/shoppy/backend/
 |                   | Biến thể sản phẩm (variant: màu, size)        | ✅ Hoàn thành |
 |                   | Xem danh sách & chi tiết sản phẩm             | ✅ Hoàn thành |
 |                   | Phân trang danh sách sản phẩm (5/trang)       | ✅ Hoàn thành |
+|                   | Tìm kiếm sản phẩm toàn sàn (GET /products/getAll) | ✅ Hoàn thành |
 |                   | Seller xem sản phẩm của Shop (lọc tồn kho)    | ✅ Hoàn thành |
 |                   | Cập nhật sản phẩm (PUT /products/{id})        | ✅ Hoàn thành |
 |                   | API Atomic biến thể (sửa kho, thêm biến thể)  | ✅ Hoàn thành |
@@ -1129,7 +1130,21 @@ src/main/java/com/shoppy/backend/
   - `service/OrderService.java` (sửa: chặn tạo đơn khi hãng inactive)
   - `AGENTS.md` (sửa)
 - **Lý do**: Hoàn thiện tính năng quản trị logistics toàn sàn: cho phép Admin quản lý các đơn vị vận chuyển đối tác, và lập tức ngừng quyền tiếp nhận đơn hàng của Shipper trực thuộc khi hãng vận chuyển đó bị tạm dừng dịch vụ.
-- **Lưu ý**: Khi Admin mở kích hoạt lại hãng vận chuyển (`status = 'ACTIVE'`), các Shipper trực thuộc hãng sẽ lập tức có thể tiếp tục nhận đơn hàng bình thường mà không cần thao tác gì thêm.
+
+---
+
+### [2026-10-30] — Nâng cấp API GET /products/getAll hỗ trợ tìm kiếm tương đối (search)
+- **Thay đổi**:
+  - Cập nhật `ProductRepository.findAllActive`: Thêm điều kiện tìm kiếm tương đối `(:search IS NULL OR LOWER(p.name) LIKE :search)` theo chuẩn bài học kinh nghiệm PostgreSQL `lower(bytea)`. Cung cấp phương thức default giữ nguyên overload không tham số `search`.
+  - Cập nhật `ProductService.getAllProducts`: Nhận tham số `String search`, xử lý chuẩn hóa `cleanSearch` (chuyển chữ thường, bao bọc `%...%` ở tầng Java Service), và áp dụng chính sách "last page clamp".
+  - Cập nhật `ProductController.getAllProducts`: Tiếp nhận query param tùy chọn `search` (`required = false`) để tìm kiếm tương đối theo tên sản phẩm.
+- **File liên quan**:
+  - `repository/ProductRepository.java` (sửa)
+  - `service/ProductService.java` (sửa)
+  - `controller/ProductController.java` (sửa)
+  - `AGENTS.md` (sửa)
+- **Lý do**: Chuẩn hóa API tìm kiếm sản phẩm toàn sàn theo tham số `search` đồng bộ với các endpoint khác trong hệ thống (như Admin Category, User, Shop), duy trì tính tương thích ngược và tối ưu hóa hiệu năng phân trang.
+- **Lưu ý**: Tham số `search` là không bắt buộc (`required = false`), nếu không truyền API sẽ trả về toàn bộ sản phẩm như trước.
 
 ---
 

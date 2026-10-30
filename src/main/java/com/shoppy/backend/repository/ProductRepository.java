@@ -48,7 +48,7 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
         BigDecimal getMaxPrice();
     }
 
-    /** Lấy tất cả sản phẩm đang hoạt động trên sàn (chưa bị xóa, đang active, Shop ACTIVE và Danh mục ACTIVE) */
+    /** Lấy tất cả sản phẩm đang hoạt động trên sàn (chưa bị xóa, đang active, Shop ACTIVE và Danh mục ACTIVE) - hỗ trợ tìm kiếm */
     @Query("""
             SELECT p FROM Product p
             WHERE p.isDeleted = false
@@ -56,8 +56,13 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
               AND p.shop.isDeleted = false
               AND p.shop.status = 'ACTIVE'
               AND (p.category IS NULL OR (p.category.isDeleted = false AND p.category.status = 'ACTIVE'))
+              AND (:search IS NULL OR LOWER(p.name) LIKE :search)
             """)
-    Page<Product> findAllActive(Pageable pageable);
+    Page<Product> findAllActive(@Param("search") String search, Pageable pageable);
+
+    default Page<Product> findAllActive(Pageable pageable) {
+        return findAllActive(null, pageable);
+    }
 
     /** Lấy tất cả sản phẩm của Shop (chưa bị xóa) */
     @Query("""

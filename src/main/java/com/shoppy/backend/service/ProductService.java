@@ -476,26 +476,37 @@ public class ProductService {
     }
 
     /**
-     * Lấy danh sách sản phẩm có phân trang.
+     * Lấy danh sách sản phẩm có phân trang và hỗ trợ tìm kiếm.
+     * Áp dụng chính sách "last page clamp":
      * Nếu {@code page} vượt quá tổng số trang → tự động clamp về trang cuối thay vì trả về rỗng.
      *
-     * @param page  Số trang (0-indexed, mặc định 0)
-     * @param size  Số bản ghi mỗi trang (mặc định 5)
+     * @param search Từ khóa tìm kiếm theo tên sản phẩm (optional)
+     * @param page   Số trang (0-indexed, mặc định 0)
+     * @param size   Số bản ghi mỗi trang (mặc định 5)
      * @return PagedResponse chứa danh sách sản phẩm và metadata phân trang
      */
     @Transactional(readOnly = true)
-    public PagedResponse<ProductResponseDTO> getAllProducts(int page, int size) {
+    public PagedResponse<ProductResponseDTO> getAllProducts(String search, int page, int size) {
+        String cleanSearch = (search != null && !search.trim().isEmpty())
+                ? "%" + search.trim().toLowerCase() + "%"
+                : null;
+
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<Product> productPage = productRepository.findAllActive(pageable);
+        Page<Product> productPage = productRepository.findAllActive(cleanSearch, pageable);
 
         // Clamp: nếu trang yêu cầu vượt quá tổng trang và có dữ liệu → lấy trang cuối
         if (productPage.isEmpty() && productPage.getTotalPages() > 0) {
             int lastPage = productPage.getTotalPages() - 1;
             pageable = PageRequest.of(lastPage, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-            productPage = productRepository.findAllActive(pageable);
+            productPage = productRepository.findAllActive(cleanSearch, pageable);
         }
 
         return mapToPagedProductResponse(productPage);
+    }
+
+    @Transactional(readOnly = true)
+    public PagedResponse<ProductResponseDTO> getAllProducts(int page, int size) {
+        return getAllProducts(null, page, size);
     }
 
     /**
