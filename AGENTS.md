@@ -1146,6 +1146,18 @@ src/main/java/com/shoppy/backend/
 - **Lý do**: Chuẩn hóa API tìm kiếm sản phẩm toàn sàn theo tham số `search` đồng bộ với các endpoint khác trong hệ thống (như Admin Category, User, Shop), duy trì tính tương thích ngược và tối ưu hóa hiệu năng phân trang.
 - **Lưu ý**: Tham số `search` là không bắt buộc (`required = false`), nếu không truyền API sẽ trả về toàn bộ sản phẩm như trước.
 
+### [2026-11-01] — Tự động sinh mã vận đơn (tracking_number) khi Seller đóng gói xong (READY_TO_SHIP)
+- **Thay đổi**:
+  - Kiểm tra tác động schema: Cột `tracking_number` độc lập trong bảng `orders`, không có bảng nào tham chiếu khóa ngoại tới cột này.
+  - Cập nhật `OrderService.markReadyToShip`: Tự động sinh `trackingNumber` nếu chưa có khi đơn hàng chuyển sang `READY_TO_SHIP`. Bổ sung hàm private `generateTrackingNumber` theo format chuẩn logistics: `[COMPANY_CODE][YYMMDD][ORDER_ID_PADDED][RANDOM_SUFFIX]` (ví dụ: `GHN26110100012A8F3`). Ghi kèm mã vận đơn vào bản ghi `OrderTracking` và nội dung `Notification` gửi cho khách hàng.
+  - Cập nhật `OrderResponse`: Bổ sung trường `trackingNumber` vào cả `OrderDetailResponse` và `OrderSummaryResponse` kèm mapper `fromEntity`.
+- **File liên quan**:
+  - `service/OrderService.java` (sửa)
+  - `domain/response/order/OrderResponse.java` (sửa)
+  - `AGENTS.md` (sửa)
+- **Lý do**: Hoàn thiện nghiệp vụ vận chuyển đơn hàng: khi người bán đóng gói xong thì đơn hàng có ngay mã vận đơn để in phiếu giao hàng và theo dõi hành trình.
+- **Lưu ý**: Cột `tracking_number` đã tồn tại sẵn trong bảng `orders` (nullable varchar(100)), không làm thay đổi cấu trúc bảng hay ảnh hưởng tới các bảng khác.
+
 ---
 
 ## 🔧 Hướng dẫn môi trường phát triển

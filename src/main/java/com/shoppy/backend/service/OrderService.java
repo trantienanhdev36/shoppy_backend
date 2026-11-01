@@ -20,10 +20,13 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -310,16 +313,21 @@ public class OrderService {
             throw new AppException(ErrorCode.ORDER_WRONG_STATUS);
         }
 
+        // Tự động sinh mã vận đơn khi người bán đóng gói xong (READY_TO_SHIP)
+        if (order.getTrackingNumber() == null || order.getTrackingNumber().isBlank()) {
+            order.setTrackingNumber(generateTrackingNumber(order));
+        }
+
         order.setStatus(OrderStatus.READY_TO_SHIP);
         orderRepository.save(order);
         addTracking(order, TrackingStatus.READY_FOR_PICKUP,
-                "Hàng đã đóng gói xong, sẵn sàng cho shipper lấy", seller.getId());
+                "Hàng đã đóng gói xong, sẵn sàng cho shipper lấy. Mã vận đơn: " + order.getTrackingNumber(), seller.getId());
 
         notificationService.sendNotification(
                 order.getCustomerId(),
                 NotificationType.ORDER_STATUS_CHANGED,
                 "Đơn hàng sẵn sàng giao",
-                "Đơn hàng #" + order.getId() + " đã được đóng gói và sẵn sàng giao cho shipper.",
+                "Đơn hàng #" + order.getId() + " đã được đóng gói và sẵn sàng giao cho shipper. Mã vận đơn: " + order.getTrackingNumber(),
                 order.getId()
         );
 
@@ -872,5 +880,27 @@ public class OrderService {
         List<com.shoppy.backend.entity.OrderTracking> trackings =
                 orderTrackingRepository.findByOrderIdOrderByCreatedAtAsc(order.getId());
         return OrderResponse.OrderDetailResponse.fromEntity(order, items, trackings);
+    }
+
+    /**
+     * Tự động sinh mã vận đơn cho đơn hàng.
+     * Cấu trúc: [MÃ_HÃNG_VẬN_CHUYỂN][YYMMDD][ORDER_ID_PADDED][RANDOM_SUFFIX]
+     * Ví dụ: GHN26110100012A8F3
+     */
+    private String generateTrackingNumber(Order order) {
+        String companyCode = "SPY";
+        if (order.getShippingCompanyId() != null) {
+            companyCode = shippingCompanyRepository.findById(order.getShippingCompanyId())
+                    .map(ShippingCompany::getCode)
+                    .filter(c -> c != null && !c.isBlank())
+                    .map(String::toUpperCase)
+                    .orElse("SPY");
+        }
+
+        String datePart = LocalDate.now().format(DateTimeFormatter.ofPattern("yyMMdd"));
+        String orderPart = String.format("%05d", order.getId() != null ? order.getId() : 0);
+        String randomSuffix = UUID.randomUUID().toString().replace("-", "").substring(0, 4).toUpperCase();
+
+        return companyCode + datePart + orderPart + randomSuffix;
     }
 }

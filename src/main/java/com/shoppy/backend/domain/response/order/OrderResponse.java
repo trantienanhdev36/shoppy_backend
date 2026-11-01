@@ -53,6 +53,7 @@ public class OrderResponse {
         private BigDecimal grandTotal;
         private String note;
         private Long shipperId;
+        private String trackingNumber;
         private LocalDateTime createdAt;
         private LocalDateTime updatedAt;
         private List<OrderItemResponse> items;
@@ -82,6 +83,7 @@ public class OrderResponse {
                     .grandTotal(order.getTotalAmount().add(order.getShippingFee()))
                     .note(order.getNote())
                     .shipperId(order.getShipperId())
+                    .trackingNumber(order.getTrackingNumber())
                     .createdAt(order.getCreatedAt())
                     .updatedAt(order.getUpdatedAt())
                     .items(itemResponses)
@@ -106,6 +108,7 @@ public class OrderResponse {
         private BigDecimal shippingFee;
         private BigDecimal grandTotal;
         private String shippingAddress;
+        private String trackingNumber;
         private int itemCount;
         private LocalDateTime createdAt;
 
@@ -119,6 +122,7 @@ public class OrderResponse {
                     .shippingFee(order.getShippingFee())
                     .grandTotal(order.getTotalAmount().add(order.getShippingFee()))
                     .shippingAddress(order.getShippingAddress())
+                    .trackingNumber(order.getTrackingNumber())
                     .itemCount(order.getItems() != null ? order.getItems().size() : 0)
                     .createdAt(order.getCreatedAt())
                     .build();
