@@ -1156,7 +1156,19 @@ src/main/java/com/shoppy/backend/
   - `domain/response/order/OrderResponse.java` (sửa)
   - `AGENTS.md` (sửa)
 - **Lý do**: Hoàn thiện nghiệp vụ vận chuyển đơn hàng: khi người bán đóng gói xong thì đơn hàng có ngay mã vận đơn để in phiếu giao hàng và theo dõi hành trình.
-- **Lưu ý**: Cột `tracking_number` đã tồn tại sẵn trong bảng `orders` (nullable varchar(100)), không làm thay đổi cấu trúc bảng hay ảnh hưởng tới các bảng khác.
+
+---
+
+### [2026-11-02] — Tối ưu triệt để ProductResponseDTO: Loại bỏ mảng images, chỉ giữ lại thumbnailUrl
+- **Thay đổi**:
+  - Loại bỏ hoàn toàn trường `images` (`List<ProductImageDTO>`) khỏi `ProductResponseDTO` (áp dụng cho toàn bộ các API danh sách sản phẩm như `GET /products/getAll`, `GET /seller/products`, `GET /shops/{id}/products`, `GET /shops/{id}`).
+  - Chỉ duy trì duy nhất trường `thumbnailUrl` (đường dẫn ảnh bìa/ảnh đại diện) để phục vụ việc render Card sản phẩm trên giao diện danh sách.
+  - Giữ nguyên mảng `images` (album ảnh sản phẩm) và `variants` (danh sách biến thể có ảnh riêng) trong `ProductDetailResponseDTO` cho API xem chi tiết `GET /products/{id}`.
+- **File liên quan**:
+  - `domain/response/product/ProductResponseDTO.java` (sửa)
+  - `AGENTS.md` (sửa)
+- **Lý do**: Tối ưu hóa tối đa payload JSON cho các màn hình danh sách trên Mobile, tiết kiệm băng thông và tăng tốc độ cuộn lướt (Infinite scroll). Tách bạch rành mạch giữa Card danh sách (chỉ cần 1 ảnh đại diện) và Chi tiết sản phẩm (cần album ảnh đầy đủ).
+- **Lưu ý**: Mobile App khi hiển thị danh sách sản phẩm chỉ cần bốc trường `thumbnailUrl` thay vì đọc từ mảng `images`.
 
 ---
 

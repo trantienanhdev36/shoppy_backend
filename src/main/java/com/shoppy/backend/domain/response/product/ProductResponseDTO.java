@@ -9,7 +9,6 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
-import java.util.List;
 
 @Getter
 @Setter
@@ -30,7 +29,6 @@ public class ProductResponseDTO {
     private Boolean isActive;
     private BigDecimal minPrice;
     private BigDecimal maxPrice;
-    private List<ProductImageDTO> images;
 
     public static ProductResponseDTO fromEntity(Product product) {
         return fromEntity(product, null, null);
@@ -54,12 +52,8 @@ public class ProductResponseDTO {
                     .orElse(null);
         }
 
-        List<ProductImageDTO> imageDTOs = null;
         String thumbnailUrl = null;
         if (product.getImages() != null && !product.getImages().isEmpty()) {
-            imageDTOs = product.getImages().stream()
-                    .map(ProductImageDTO::fromEntity)
-                    .toList();
             thumbnailUrl = product.getImages().get(0).getImageUrl();
         }
 
@@ -98,7 +92,6 @@ public class ProductResponseDTO {
                 .isActive(product.getIsActive())
                 .minPrice(min)
                 .maxPrice(max)
-                .images(imageDTOs)
                 .build();
     }
 }
