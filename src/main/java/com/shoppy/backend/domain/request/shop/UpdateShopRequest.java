@@ -19,5 +19,6 @@ public class UpdateShopRequest {
 
     private String description;
 
-    private String googleMapUrl;
+    @Size(max = 500, message = "Địa chỉ shop tối đa 500 ký tự")
+    private String address;
 }

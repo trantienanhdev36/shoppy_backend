@@ -31,4 +31,16 @@ public interface ProductVariantRepository extends JpaRepository<ProductVariant, 
      * Đếm số lượng biến thể chưa bị xóa của một sản phẩm.
      */
     long countByProductIdAndIsDeletedFalse(Long productId);
+
+    /**
+     * Đếm số lượng biến thể đang active (isActive=true) và chưa bị xóa của một sản phẩm.
+     * Dùng để kiểm tra trước khi deactivate variant cuối cùng còn hoạt động.
+     */
+    long countByProductIdAndIsDeletedFalseAndIsActiveTrue(Long productId);
+
+    /**
+     * Lấy danh sách biến thể đang active (isActive=true) và chưa bị xóa của một sản phẩm.
+     * Dùng cho public API — chỉ trả variant mà người mua có thể chọn.
+     */
+    List<ProductVariant> findByProductIdAndIsDeletedFalseAndIsActiveTrueOrderByIdAsc(Long productId);
 }

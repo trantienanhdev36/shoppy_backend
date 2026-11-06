@@ -13,7 +13,7 @@ public record ShopResponse(
         String name,
         String description,
         String logoUrl,
-        String googleMapUrl,
+        String address,
         BigDecimal balance,
         String status,
         LocalDateTime createdAt
@@ -26,7 +26,7 @@ public record ShopResponse(
                 .name(shop.getName())
                 .description(shop.getDescription())
                 .logoUrl(shop.getLogoUrl())
-                .googleMapUrl(shop.getGoogleMapUrl())
+                .address(shop.getAddress())
                 .balance(shop.getBalance())
                 .status(shop.getStatus())
                 .createdAt(shop.getCreatedAt())

@@ -40,7 +40,7 @@ public class ShopController {
 
     /**
      * PUT /shops/me (Multipart Form Data)
-     * Cập nhật thông tin Shop (tên, mô tả, Google Map, logo mới upload).
+     * Cập nhật thông tin Shop (tên, mô tả, địa chỉ, logo mới upload).
      */
     @PutMapping(value = "/me", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<ShopResponse>> updateMyShopMultipart(

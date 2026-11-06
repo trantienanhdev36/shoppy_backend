@@ -83,6 +83,11 @@ public class Order extends BaseEntity {
     @Column(name = "tracking_number", length = 100)
     private String trackingNumber;
 
+    // ── Nhóm đơn (khi khách đặt hàng từ nhiều shop cùng lúc) ─────────────────
+    // Nullable — chỉ có giá trị khi 1 request tạo ra nhiều đơn từ nhiều shop
+    @Column(name = "order_group_id", length = 50)
+    private String orderGroupId;
+
     // ── Chi tiết sản phẩm ─────────────────────────────────────────────────────
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default

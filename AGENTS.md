@@ -171,6 +171,7 @@ src/main/java/com/shoppy/backend/
 |                   | Xóa / Ẩn sản phẩm                             | ✅ Hoàn thành |
 |                   | Xóa / Ẩn biến thể sản phẩm                    | ✅ Hoàn thành |
 | **Order**         | Tạo đơn hàng                                  | ✅ Hoàn thành |
+|                   | Tách đơn tự động (nhiều shop → nhiều Order)   | ✅ Hoàn thành |
 |                   | Xem đơn hàng của user                         | ✅ Hoàn thành |
 |                   | Cập nhật trạng thái đơn hàng                  | ✅ Hoàn thành |
 |                   | Seller xem đơn của Shop (GET /seller/orders)  | ✅ Hoàn thành |
@@ -669,11 +670,11 @@ src/main/java/com/shoppy/backend/
   - Cập nhật `ProductService`:
     + Thêm `getPublicProductsByShop(shopId, page, size)` có phân trang và clamp.
   - Tạo DTOs:
-    + `UpdateShopRequest`: Tên shop (@NotBlank, max 100), mô tả, googleMapUrl.
+    + `UpdateShopRequest`: Tên shop (@NotBlank, max 100), mô tả, địa chỉ.
     + `ShopPublicProfileResponse`: Thông tin công khai của Shop (bảo mật, không lộ `balance` hay `userId`) kèm danh sách sản phẩm phân trang `PagedResponse<ProductResponseDTO>`.
   - Cập nhật `ShopService`:
     + Chuẩn hóa bắt lỗi sang `AppException(ErrorCode)`.
-    + Thêm `updateMyShop(email, request, logo)`: Cập nhật tên, mô tả, Google Map, upload logo mới lên Cloudinary thư mục `shoppy_shop_logos`.
+    + Thêm `updateMyShop(email, request, logo)`: Cập nhật tên, mô tả, địa chỉ, upload logo mới lên Cloudinary thư mục `shoppy_shop_logos`.
     + Thêm `getPublicShopProfile(shopId, page, size)`: Kiểm tra Shop tồn tại & đang active, tải danh sách sản phẩm công khai.
   - Cập nhật `ShopController`:
     + `PUT /shops/me`: Hỗ trợ cả 2 định dạng `multipart/form-data` (upload logo mới) và `application/json` (chỉ cập nhật text).
@@ -1037,6 +1038,27 @@ src/main/java/com/shoppy/backend/
 
 ---
 
+### [2026-11-06] — Đổi trường Google Map của Shop thành địa chỉ
+- **Thay đổi**:
+  - Đổi `Shop.googleMapUrl` thành `Shop.address`; cập nhật request đăng ký/cập nhật và response Shop public/Admin để dùng trường `address`.
+  - Cập nhật `ShopService` và mô tả endpoint liên quan để lưu/trả địa chỉ.
+  - Thêm migration đổi tên cột `shops.google_map_url` thành `shops.address`, giữ nguyên dữ liệu hiện có.
+- **File liên quan**:
+  - `entity/Shop.java`
+  - `domain/request/shop/RegisterShopRequest.java`
+  - `domain/request/shop/UpdateShopRequest.java`
+  - `domain/response/shop/ShopResponse.java`
+  - `domain/response/shop/ShopPublicProfileResponse.java`
+  - `domain/response/admin/AdminShopDetailResponse.java`
+  - `service/ShopService.java`
+  - `controller/ShopController.java`
+  - `src/main/resources/db/migration/V20261106__rename_shop_google_map_url_to_address.sql`
+  - `AGENTS.md`
+- **Lý do**: Trường thông tin Shop cần lưu địa chỉ thay vì chỉ giới hạn ở URL Google Maps.
+- **Lưu ý**: API JSON dùng key `address` thay cho `googleMapUrl`; cần áp dụng migration trước khi chạy phiên bản mới trên database hiện có.
+
+---
+
 ### [2026-10-29] — Thêm Status cho Category & Đồng Bộ Logic Ẩn Sản Phẩm Khi Category Bị Deactive
 - **Thay đổi**:
   1. `Category Entity`:
@@ -1193,3 +1215,82 @@ docker-compose up -d
 - `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM`
 - `REDIS_HOST`, `REDIS_PORT`
 
+---
+
+### [2026-11-06] — Thêm API cập nhật thông tin biến thể sản phẩm: PUT /products/variants/{id}
+- **Thay đổi**:
+  - Tạo `UpdateVariantRequest`: Request DTO partial update — tất cả trường đều optional (`variantName`, `price`, `stockQuantity`, `sku`, `imageUrl`). Trường nào null = giữ nguyên giá trị cũ.
+  - Thêm `ProductService.updateVariant(email, variantId, request, image)`:
+    + Kiểm tra variant tồn tại và chưa bị xóa.
+    + Kiểm tra product cha không bị xóa.
+    + Kiểm tra ownership (variant → product → shop → seller), ADMIN được thao tác tất cả.
+    + Partial update: chỉ set trường nào có giá trị, bỏ qua trường null.
+    + Ưu tiên ảnh: `file upload > imageUrl trong request > giữ nguyên`.
+  - Thêm 2 endpoint vào `ProductController`:
+    + `PUT /products/variants/{id}` (`consumes = APPLICATION_JSON`) — cập nhật không kèm ảnh.
+    + `PUT /products/variants/{id}` (`consumes = MULTIPART_FORM_DATA`) — cập nhật kèm upload file ảnh.
+  - Phân quyền tự động: `PUT /products/**` đã được `SecurityConfig` phân quyền `SELLER` từ trước.
+- **File liên quan**:
+  - `domain/request/product/UpdateVariantRequest.java` (tạo mới)
+  - `service/ProductService.java` (sửa: thêm updateVariant + import)
+  - `controller/ProductController.java` (sửa: thêm 2 endpoint PUT /products/variants/{id} + import)
+  - `AGENTS.md` (sửa)
+- **Lý do**: Cho phép seller chỉnh sửa thông tin (tên, giá, kho, SKU, ảnh) của từng biến thể riêng lẻ mà không cần gửi toàn bộ payload sản phẩm qua `PUT /products/{id}`.
+- **Lưu ý**:
+  - Đây là **partial update** — client chỉ cần gửi trường muốn thay đổi. Các trường không gửi (null) sẽ được giữ nguyên.
+  - Khác với `PATCH /products/variants/{id}/stock` chỉ cập nhật kho, endpoint này cập nhật được toàn bộ metadata của variant.
+  - Khi gửi `sku: ""` (chuỗi rỗng), SKU sẽ được set về `null` (xóa SKU). Khi không gửi `sku` (null), SKU giữ nguyên.
+
+---
+
+### [2026-11-06] — Phân tách API xem chi tiết sản phẩm cho Seller vs Public & Chặn deactivate variant cuối
+- **Thay đổi**:
+  1. **Thêm ErrorCode `CANNOT_DEACTIVATE_LAST_ACTIVE_VARIANT` (4049)**: Thông báo rõ ràng khi seller cố ẩn biến thể duy nhất còn hoạt động.
+  2. **Thêm 2 query vào `ProductVariantRepository`**:
+     - `countByProductIdAndIsDeletedFalseAndIsActiveTrue`: Đếm variant đang active để kiểm tra trước deactivate.
+     - `findByProductIdAndIsDeletedFalseAndIsActiveTrueOrderByIdAsc`: Lấy danh sách variant active cho public API.
+  3. **Chặn deactivate variant cuối cùng còn active (Hướng B)**: Trong `ProductService.updateVariantActiveStatus()`, kiểm tra `countByProductIdAndIsDeletedFalseAndIsActiveTrue` trước khi set `isActive = false`. Nếu chỉ còn 1 variant active → ném `CANNOT_DEACTIVATE_LAST_ACTIVE_VARIANT`.
+  4. **Thêm `ProductDetailResponseDTO.fromEntityForSeller()`**: Static factory method riêng cho seller — trả tất cả variant chưa bị xóa (kể cả `isActive = false`) để quản lý.
+  5. **Fix `ProductDetailResponseDTO.fromEntity()`**: Filter `isDeleted = true` khỏi danh sách variant trả về. `totalStock` cũng chỉ tính variant chưa bị xóa.
+  6. **Fix `GET /products/{id}/variants` (public)**: Chuyển sang dùng `findByProductIdAndIsDeletedFalseAndIsActiveTrueOrderByIdAsc` — buyer chỉ thấy variant active.
+  7. **Thêm `ProductService.getSellerProductDetail(email, productId)`**: Logic riêng cho seller — không lọc `isActive` của product, dùng `fromEntityForSeller()`, kiểm tra ownership.
+  8. **Thêm `GET /seller/products/{id}`** vào `SellerProductController`: Endpoint auth-required, trả chi tiết sản phẩm theo góc nhìn quản lý.
+- **File liên quan**:
+  - `common/exception/ErrorCode.java` (sửa: thêm 4049)
+  - `repository/ProductVariantRepository.java` (sửa: thêm 2 query methods)
+  - `domain/response/product/ProductDetailResponseDTO.java` (sửa: fix fromEntity filter + thêm fromEntityForSeller)
+  - `service/ProductService.java` (sửa: chặn deactivate cuối + thêm getSellerProductDetail + fix getProductVariants)
+  - `controller/SellerProductController.java` (sửa: thêm GET /{id})
+  - `AGENTS.md` (sửa)
+- **Lý do**: Khắc phục 2 vấn đề nghiệp vụ: (1) Buyer nhìn thấy variant đã inactive/deleted; (2) Seller không xem được sản phẩm/variant mình vừa deactivate vì dùng chung public API.
+- **Lưu ý**:
+  - `GET /seller/products/{id}` nằm dưới `/seller/**` nên đã được `SecurityConfig` phân quyền `SELLER` tự động — không cần sửa SecurityConfig.
+  - Nếu tất cả variant của sản phẩm đều inactive, seller phải dùng `PATCH /products/{id}/deactivate` để ẩn toàn bộ sản phẩm thay vì cố ẩn từng variant.
+  - `fromEntityForSeller()` và `fromEntity()` hiện trả ra cùng kiểu `ProductDetailResponseDTO` nhưng khác nhau ở bộ filter variant — tái sử dụng cùng DTO, không cần tạo class mới.
+
+---
+
+### [2026-11-06] — Tách đơn tự động (Auto Order Splitting) & Dọn debug logging
+
+- **Thay đổi**:
+  1. **Thêm field `orderGroupId` vào `Order` entity**: Cột nullable `order_group_id VARCHAR(50)` — Hibernate `ddl-auto=update` tự thêm. Giá trị format `GRP-YYYYMMDD-XXXXXXXX`, chỉ có khi 1 request tạo ra nhiều đơn từ nhiều shop.
+  2. **Tạo `CreateOrderGroupResponse` DTO**: Wrapper response mới cho endpoint tạo đơn — chứa `orderGroupId`, `totalOrders`, `totalAmount`, `totalShippingFee`, `grandTotal` và danh sách `orders` (mỗi phần tử là `OrderSummary` tóm tắt 1 đơn).
+  3. **Refactor `OrderService.createOrder()`**: Thay vì throw RuntimeException khi phát hiện items từ nhiều shop, giờ gom items theo shopId bằng `LinkedHashMap<Long, List<OrderItem>>`, sinh `orderGroupId` nếu > 1 shop, rồi loop tạo 1 Order per shop. Mỗi order có tracking + Redis enqueue + notification riêng. Response trả `CreateOrderGroupResponse`.
+  4. **Cập nhật `OrderController.createOrder()`**: Đổi return type thành `ResponseEntity<ApiResponse<CreateOrderGroupResponse>>`, HTTP status 201 CREATED.
+  5. **Dọn `JwtAuthenticationFilter`**: Xóa toàn bộ `System.out.println` debug tạm thêm để debug 403, giữ lại `log.warn` / `log.error` chuẩn.
+
+- **File liên quan**:
+  - `entity/Order.java` (sửa: thêm field `orderGroupId`)
+  - `domain/response/order/CreateOrderGroupResponse.java` (tạo mới)
+  - `service/OrderService.java` (sửa: refactor createOrder + thêm import LinkedHashMap)
+  - `controller/OrderController.java` (sửa: đổi return type createOrder + thêm import)
+  - `config/JwtAuthenticationFilter.java` (sửa: xóa debug println)
+  - `AGENTS.md` (sửa)
+
+- **Lý do**: Cho phép customer đặt sản phẩm từ nhiều shop trong 1 request duy nhất thay vì phải tạo nhiều request riêng lẻ, giống UX của Shopee/Lazada.
+
+- **Lưu ý**:
+  - **Breaking change đối với client**: `POST /orders` trước trả `CreateOrderResponse` (single object), nay trả `CreateOrderGroupResponse` (wrapper có `orders: []`). Frontend cần cập nhật.
+  - Trường hợp đặt từ 1 shop: `orderGroupId = null`, `totalOrders = 1`, `orders` có 1 phần tử — backward-compatible về data, chỉ khác structure.
+  - `shippingFee` áp dụng **per order** (mỗi đơn trả phí riêng) — đây là quyết định thiết kế đơn giản nhất; có thể điều chỉnh sau.
+  - Wallet payment: mỗi đơn trong nhóm vẫn được xử lý qua Redis Queue độc lập — đảm bảo atomicity riêng cho từng shop. Nếu 1 đơn hết kho thì đơn đó bị cancel, đơn còn lại vẫn tiến hành bình thường.

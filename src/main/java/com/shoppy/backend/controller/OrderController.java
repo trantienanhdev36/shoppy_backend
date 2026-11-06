@@ -5,11 +5,13 @@ import com.shoppy.backend.common.dto.PagedResponse;
 import com.shoppy.backend.common.enums.OrderStatus;
 import com.shoppy.backend.domain.request.order.CancelOrderRequest;
 import com.shoppy.backend.domain.request.order.CreateOrderRequest;
+import com.shoppy.backend.domain.response.order.CreateOrderGroupResponse;
 import com.shoppy.backend.domain.response.order.OrderResponse;
 import com.shoppy.backend.repository.UserRepository;
 import com.shoppy.backend.service.OrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -44,16 +46,18 @@ public class OrderController {
     /**
      * POST /orders
      * Khách hàng đặt đơn hàng mới.
+     * Hỗ trợ đặt hàng từ nhiều shop cùng lúc — mỗi shop sẽ được tách thành 1 đơn riêng.
      * Trả về ngay lập tức (async processing qua Redis Queue).
      */
     @PostMapping
-    public ResponseEntity<OrderResponse.CreateOrderResponse> createOrder(
+    public ResponseEntity<ApiResponse<CreateOrderGroupResponse>> createOrder(
             @Valid @RequestBody CreateOrderRequest request,
             Authentication authentication) {
 
         String email = authentication.getName();
-        OrderResponse.CreateOrderResponse response = orderService.createOrder(email, request);
-        return ResponseEntity.ok(response);
+        CreateOrderGroupResponse response = orderService.createOrder(email, request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Đặt hàng thành công! Đơn hàng đang được xử lý.", response));
     }
 
     /**

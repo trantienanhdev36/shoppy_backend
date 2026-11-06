@@ -53,6 +53,7 @@ D:\itellij_project\Shoppy\src\main\java\com\shoppy\backend\domain\request\produc
 D:\itellij_project\Shoppy\src\main\java\com\shoppy\backend\domain\request\product\ProductVariantRequest.java
 D:\itellij_project\Shoppy\src\main\java\com\shoppy\backend\domain\request\product\UpdateProductRequest.java
 D:\itellij_project\Shoppy\src\main\java\com\shoppy\backend\domain\request\product\UpdateProductVariantRequest.java
+D:\itellij_project\Shoppy\src\main\java\com\shoppy\backend\domain\request\product\UpdateVariantRequest.java
 D:\itellij_project\Shoppy\src\main\java\com\shoppy\backend\domain\request\product\UpdateVariantStockRequest.java
 D:\itellij_project\Shoppy\src\main\java\com\shoppy\backend\domain\request\shipper\CodRemittanceRequest.java
 D:\itellij_project\Shoppy\src\main\java\com\shoppy\backend\domain\request\shipper\RegisterShipperRequest.java
@@ -70,6 +71,7 @@ D:\itellij_project\Shoppy\src\main\java\com\shoppy\backend\domain\response\admin
 D:\itellij_project\Shoppy\src\main\java\com\shoppy\backend\domain\response\auth\AuthResponse.java
 D:\itellij_project\Shoppy\src\main\java\com\shoppy\backend\domain\response\category\CategoryResponse.java
 D:\itellij_project\Shoppy\src\main\java\com\shoppy\backend\domain\response\notification\NotificationResponse.java
+D:\itellij_project\Shoppy\src\main\java\com\shoppy\backend\domain\response\order\CreateOrderGroupResponse.java
 D:\itellij_project\Shoppy\src\main\java\com\shoppy\backend\domain\response\order\OrderResponse.java
 D:\itellij_project\Shoppy\src\main\java\com\shoppy\backend\domain\response\product\ProductDetailResponseDTO.java
 D:\itellij_project\Shoppy\src\main\java\com\shoppy\backend\domain\response\product\ProductImageDTO.java

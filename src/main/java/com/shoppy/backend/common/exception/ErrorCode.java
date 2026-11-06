@@ -54,7 +54,8 @@ public enum ErrorCode {
     INVALID_CATEGORY_STATUS(4045, "Trạng thái danh mục không hợp lệ (phải là ACTIVE hoặc INACTIVE)", HttpStatus.BAD_REQUEST),
     SHIPPING_COMPANY_CODE_EXISTED(4046, "Mã đơn vị vận chuyển đã tồn tại, vui lòng chọn mã khác", HttpStatus.BAD_REQUEST),
     SHIPPING_COMPANY_NAME_EXISTED(4047, "Tên đơn vị vận chuyển đã tồn tại, vui lòng chọn tên khác", HttpStatus.BAD_REQUEST),
-    INVALID_SHIPPING_COMPANY_STATUS(4048, "Trạng thái đơn vị vận chuyển không hợp lệ (phải là ACTIVE hoặc INACTIVE)", HttpStatus.BAD_REQUEST);
+    INVALID_SHIPPING_COMPANY_STATUS(4048, "Trạng thái đơn vị vận chuyển không hợp lệ (phải là ACTIVE hoặc INACTIVE)", HttpStatus.BAD_REQUEST),
+    CANNOT_DEACTIVATE_LAST_ACTIVE_VARIANT(4049, "Không thể ẩn biến thể duy nhất còn hoạt động. Vui lòng ẩn toàn bộ sản phẩm.", HttpStatus.BAD_REQUEST);
 
     private final int code;
     private final String message;

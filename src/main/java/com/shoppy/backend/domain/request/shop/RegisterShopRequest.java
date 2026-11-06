@@ -18,7 +18,6 @@ public class RegisterShopRequest {
     @Size(max = 1000, message = "Mô tả shop không được vượt quá 1000 ký tự")
     private String description;
 
-    // Tùy chọn: Thêm ràng buộc kiểm tra sơ bộ định dạng URL Google Maps nếu cần
-    @Size(max = 500, message = "Đường dẫn Google Map tối đa 500 ký tự")
-    private String googleMapUrl;
+    @Size(max = 500, message = "Địa chỉ shop tối đa 500 ký tự")
+    private String address;
 }

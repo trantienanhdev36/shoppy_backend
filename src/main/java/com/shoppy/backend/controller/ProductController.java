@@ -6,6 +6,7 @@ import com.shoppy.backend.domain.request.product.AddProductVariantRequest;
 import com.shoppy.backend.domain.request.product.CreateProductRequest;
 import com.shoppy.backend.domain.request.product.ProductStatusRequest;
 import com.shoppy.backend.domain.request.product.UpdateProductRequest;
+import com.shoppy.backend.domain.request.product.UpdateVariantRequest;
 import com.shoppy.backend.domain.request.product.UpdateVariantStockRequest;
 import com.shoppy.backend.domain.response.product.ProductDetailResponseDTO;
 import com.shoppy.backend.domain.response.product.ProductResponseDTO;
@@ -96,6 +97,46 @@ public class ProductController {
 
         return ResponseEntity.ok(
                 ApiResponse.success("Cập nhật số lượng tồn kho thành công!", response)
+        );
+    }
+
+    /**
+     * PUT /products/variants/{variantId} (JSON)
+     * Cập nhật thông tin một biến thể sản phẩm (không kèm upload file ảnh).
+     * Partial update — chỉ trường nào có giá trị mới được cập nhật, trường null giữ nguyên.
+     */
+    @PutMapping(value = "/variants/{variantId}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<ProductVariantDTO>> updateVariantJson(
+            @PathVariable Long variantId,
+            Authentication authentication,
+            @Valid @RequestBody UpdateVariantRequest request
+    ) {
+        String email = authentication.getName();
+        ProductVariantDTO response = productService.updateVariant(email, variantId, request, null);
+
+        return ResponseEntity.ok(
+                ApiResponse.success("Cập nhật biến thể sản phẩm thành công!", response)
+        );
+    }
+
+    /**
+     * PUT /products/variants/{variantId} (Multipart Form Data)
+     * Cập nhật thông tin một biến thể sản phẩm kèm upload file ảnh mới.
+     * Partial update — chỉ trường nào có giá trị mới được cập nhật, trường null giữ nguyên.
+     * File ảnh (nếu có) sẽ được ưu tiên hơn trường imageUrl trong form data.
+     */
+    @PutMapping(value = "/variants/{variantId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<ProductVariantDTO>> updateVariantMultipart(
+            @PathVariable Long variantId,
+            Authentication authentication,
+            @Valid @ModelAttribute UpdateVariantRequest request,
+            @RequestParam(value = "image", required = false) MultipartFile image
+    ) {
+        String email = authentication.getName();
+        ProductVariantDTO response = productService.updateVariant(email, variantId, request, image);
+
+        return ResponseEntity.ok(
+                ApiResponse.success("Cập nhật biến thể sản phẩm thành công!", response)
         );
     }
 

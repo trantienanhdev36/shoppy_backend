@@ -18,7 +18,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
-@Slf4j // 💡 Thêm Lombok annotation này để dùng log.error()
+@Slf4j // Thêm Lombok annotation này để dùng log.error()
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
@@ -60,7 +60,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 // 5. Validate Token
                 if (jwtUtils.isTokenValid(jwt, userDetails)) {
-                    System.out.println(">>> JWT HỢP LỆ CHO USER: " + userEmail);
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                             userDetails,
                             null,
@@ -75,7 +74,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
             }
         } catch (Exception e) {
-            // 💡 In log chi tiết ngoại lệ ra Console để debug
             log.error("[JWT Filter Exception] Xác thực thất bại: {}", e.getMessage());
         }
 

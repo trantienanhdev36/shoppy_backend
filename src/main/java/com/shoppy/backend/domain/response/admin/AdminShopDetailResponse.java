@@ -22,7 +22,7 @@ public class AdminShopDetailResponse {
     private String name;
     private String description;
     private String logoUrl;
-    private String googleMapUrl;
+    private String address;
     private BigDecimal balance;
     private String status;
     private LocalDateTime createdAt;
@@ -68,7 +68,7 @@ public class AdminShopDetailResponse {
                 .name(shop.getName())
                 .description(shop.getDescription())
                 .logoUrl(shop.getLogoUrl())
-                .googleMapUrl(shop.getGoogleMapUrl())
+                .address(shop.getAddress())
                 .balance(shop.getBalance())
                 .status(shop.getStatus())
                 .createdAt(shop.getCreatedAt())

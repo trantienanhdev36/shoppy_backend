@@ -31,8 +31,8 @@ public class Shop extends BaseEntity{
     @Column(name = "logo_url")
     private String logoUrl;
 
-    @Column(name = "google_map_url", columnDefinition = "TEXT")
-    private String googleMapUrl;
+    @Column(name = "address", columnDefinition = "TEXT")
+    private String address;
 
     @Builder.Default //  Bổ sung annotation này
     @Column(nullable = false, precision = 15, scale = 2)

@@ -13,7 +13,7 @@ public record ShopPublicProfileResponse(
         String name,
         String description,
         String logoUrl,
-        String googleMapUrl,
+        String address,
         String status,
         LocalDateTime createdAt,
         PagedResponse<ProductResponseDTO> products
@@ -25,7 +25,7 @@ public record ShopPublicProfileResponse(
                 .name(shop.getName())
                 .description(shop.getDescription())
                 .logoUrl(shop.getLogoUrl())
-                .googleMapUrl(shop.getGoogleMapUrl())
+                .address(shop.getAddress())
                 .status(shop.getStatus())
                 .createdAt(shop.getCreatedAt())
                 .products(products)

@@ -60,7 +60,7 @@ public class ShopService {
                 .name(request.getName())
                 .description(request.getDescription())
                 .logoUrl(logoUrl)
-                .googleMapUrl(request.getGoogleMapUrl())
+                .address(request.getAddress())
                 .balance(BigDecimal.ZERO)
                 .status("ACTIVE")
                 .build();
@@ -88,7 +88,7 @@ public class ShopService {
     }
 
     /**
-     * Cập nhật thông tin Cửa hàng của Seller (tên, mô tả, địa chỉ Google Map, logo mới).
+     * Cập nhật thông tin Cửa hàng của Seller (tên, mô tả, địa chỉ, logo mới).
      */
     @Transactional
     public ShopResponse updateMyShop(String email, UpdateShopRequest request, MultipartFile logo) {
@@ -106,9 +106,9 @@ public class ShopService {
             shop.setName(request.getName());
         }
 
-        // 2. Cập nhật mô tả và Google Map URL
+        // 2. Cập nhật mô tả và địa chỉ
         shop.setDescription(request.getDescription());
-        shop.setGoogleMapUrl(request.getGoogleMapUrl());
+        shop.setAddress(request.getAddress());
 
         // 3. Cập nhật logo mới nếu có upload
         if (logo != null && !logo.isEmpty()) {

@@ -43,6 +43,7 @@ com\shoppy\backend\domain\request\product\UpdateVariantStockRequest.class
 com\shoppy\backend\common\enums\TransactionStatus.class
 com\shoppy\backend\domain\response\product\ProductDetailResponseDTO.class
 com\shoppy\backend\controller\ShipperController.class
+com\shoppy\backend\domain\request\product\UpdateVariantRequest.class
 com\shoppy\backend\service\OrderService$1.class
 com\shoppy\backend\domain\response\user\UserResponse$WalletDepositResponse.class
 com\shoppy\backend\controller\ShopController.class

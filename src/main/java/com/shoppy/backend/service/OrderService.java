@@ -6,6 +6,7 @@ import com.shoppy.backend.common.exception.AppException;
 import com.shoppy.backend.common.exception.ErrorCode;
 import com.shoppy.backend.common.util.PaginationUtils;
 import com.shoppy.backend.domain.request.order.CreateOrderRequest;
+import com.shoppy.backend.domain.response.order.CreateOrderGroupResponse;
 import com.shoppy.backend.domain.response.order.OrderResponse;
 import com.shoppy.backend.entity.*;
 import com.shoppy.backend.repository.*;
@@ -23,6 +24,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -60,9 +62,13 @@ public class OrderService {
      * Bước 1: Customer gửi request tạo đơn.
      * Hệ thống tạo bản ghi PENDING ngay lập tức và đẩy vào Redis Queue.
      * Worker sẽ xử lý ngầm (kiểm tra kho, thanh toán) trong nền.
+     * <p>
+     * Hỗ trợ đặt hàng từ NHIỀU shop trong cùng 1 request:
+     * - 1 shop  → 1 Order được tạo, orderGroupId = null
+     * - N shops → N Order được tạo, orderGroupId = "GRP-YYYYMMDD-XXXXXXXX"
      */
     @Transactional
-    public OrderResponse.CreateOrderResponse createOrder(String customerEmail, CreateOrderRequest request) {
+    public CreateOrderGroupResponse createOrder(String customerEmail, CreateOrderRequest request) {
         // 1.1 Xác định customer
         User customer = userRepository.findByEmail(customerEmail)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
@@ -75,10 +81,9 @@ public class OrderService {
             throw new AppException(ErrorCode.SHIPPING_COMPANY_NOT_ACTIVE);
         }
 
-        // 1.3 Xây dựng danh sách OrderItem (validate variant tồn tại, tính subtotal)
-        List<OrderItem> orderItems = new ArrayList<>();
-        BigDecimal totalAmount = BigDecimal.ZERO;
-        Long shopId = null; // Lấy từ product của variant đầu tiên
+        // 1.3 Validate từng item và phân nhóm theo shopId (giữ nguyên thứ tự bằng LinkedHashMap)
+        // Map<shopId, List<(itemReq, variant)>>
+        Map<Long, List<OrderItem>> itemsByShop = new LinkedHashMap<>();
 
         for (CreateOrderRequest.OrderItemRequest itemReq : request.getItems()) {
             ProductVariant variant = productVariantRepository.findById(itemReq.getProductVariantId())
@@ -103,88 +108,123 @@ public class OrderService {
                 throw new AppException(ErrorCode.CATEGORY_NOT_ACTIVE);
             }
 
-            // Lấy shopId từ product (validate tất cả items cùng một shop)
-            Long variantShopId = productShop.getId();
-            if (shopId == null) {
-                shopId = variantShopId;
-            } else if (!shopId.equals(variantShopId)) {
-                throw new RuntimeException("Không thể đặt sản phẩm từ nhiều shop trong cùng một đơn hàng");
-            }
-
             BigDecimal subtotal = variant.getPrice().multiply(BigDecimal.valueOf(itemReq.getQuantity()));
-            totalAmount = totalAmount.add(subtotal);
 
-            orderItems.add(OrderItem.builder()
-                    .productId(variant.getProduct().getId())
+            OrderItem orderItem = OrderItem.builder()
+                    .productId(product.getId())
                     .productVariantId(variant.getId())
                     .variantId(variant.getId())              // Legacy column
                     .productImage(variant.getImageUrl())    // Ảnh snapshot
-                    // SNAPSHOT fields (cột mới)
-                    .productNameSnapshot(variant.getProduct().getName())
+                    .productNameSnapshot(product.getName())
                     .variantNameSnapshot(variant.getVariantName())
                     .priceSnapshot(variant.getPrice())
-                    // Legacy fields (cột CŨ trong DB - giữ cùng giá trị)
-                    .productName(variant.getProduct().getName())
-                    .variantName(variant.getVariantName())
-                    .unitPrice(variant.getPrice())
+                    .productName(product.getName())          // Legacy
+                    .variantName(variant.getVariantName())   // Legacy
+                    .unitPrice(variant.getPrice())           // Legacy
                     .quantity(itemReq.getQuantity())
                     .subtotal(subtotal)
-                    .build());
+                    .build();
+
+            itemsByShop.computeIfAbsent(productShop.getId(), k -> new ArrayList<>()).add(orderItem);
         }
 
-        // 1.4 Tạo bản ghi Order với trạng thái PENDING
-        Order order = Order.builder()
-                .customerId(customer.getId())
-                .userId(customer.getId())                // Tương thích cột user_id cũ trong DB
-                .shopId(shopId)
-                .shippingCompanyId(shippingCompany.getId())
-                .paymentMethod(request.getPaymentMethod())
-                .status(OrderStatus.PENDING)
-                .shippingAddress(request.getShippingAddress())
-                .recipientName(request.getRecipientName())
-                .recipientPhone(request.getRecipientPhone())
-                .totalAmount(totalAmount)
-                .shippingFee(shippingCompany.getBaseFee())
-                .note(request.getNote())
+        // 1.4 Sinh orderGroupId nếu có nhiều hơn 1 shop
+        String orderGroupId = itemsByShop.size() > 1
+                ? "GRP-" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE)
+                  + "-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase()
+                : null;
+
+        // 1.5 Tạo 1 Order per shop, lưu items, tracking, enqueue
+        List<Order> createdOrders = new ArrayList<>();
+        List<Integer> itemCountPerOrder = new ArrayList<>();
+
+        for (Map.Entry<Long, List<OrderItem>> entry : itemsByShop.entrySet()) {
+            Long shopId = entry.getKey();
+            List<OrderItem> shopItems = entry.getValue();
+
+            BigDecimal shopTotal = shopItems.stream()
+                    .map(OrderItem::getSubtotal)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            Order order = Order.builder()
+                    .customerId(customer.getId())
+                    .userId(customer.getId())
+                    .shopId(shopId)
+                    .shippingCompanyId(shippingCompany.getId())
+                    .paymentMethod(request.getPaymentMethod())
+                    .status(OrderStatus.PENDING)
+                    .shippingAddress(request.getShippingAddress())
+                    .recipientName(request.getRecipientName())
+                    .recipientPhone(request.getRecipientPhone())
+                    .totalAmount(shopTotal)
+                    .shippingFee(shippingCompany.getBaseFee())
+                    .note(request.getNote())
+                    .orderGroupId(orderGroupId)
+                    .build();
+
+            Order savedOrder = orderRepository.save(order);
+
+            // Gán order vào từng item rồi lưu
+            for (OrderItem item : shopItems) {
+                item.setOrder(savedOrder);
+            }
+            orderItemRepository.saveAll(shopItems);
+
+            // Tracking đầu tiên
+            addTracking(savedOrder, TrackingStatus.ORDER_PLACED, "Đơn hàng đã được đặt thành công", customer.getId());
+
+            // Đẩy vào Redis Queue
+            enqueueOrderAfterCommit(savedOrder.getId());
+            log.info("[OrderService] Đã đẩy orderId [{}] vào Redis Queue '{}' (nhóm: {})",
+                    savedOrder.getId(), ORDER_QUEUE_KEY, orderGroupId != null ? orderGroupId : "single");
+
+            // Thông báo cho khách hàng
+            notificationService.sendNotification(
+                    customer.getId(),
+                    NotificationType.ORDER_PLACED,
+                    "Đặt hàng thành công",
+                    "Đơn hàng #" + savedOrder.getId() + " của bạn đã được đặt thành công.",
+                    savedOrder.getId()
+            );
+
+            // Thông báo cho người bán
+            shopRepository.findById(shopId).ifPresent(shop ->
+                    notificationService.sendNotification(
+                            shop.getUserId(),
+                            NotificationType.NEW_ORDER_FOR_SELLER,
+                            "Có đơn hàng mới",
+                            "Shop của bạn vừa nhận được đơn hàng mới #" + savedOrder.getId() + ".",
+                            savedOrder.getId()
+                    )
+            );
+
+            createdOrders.add(savedOrder);
+            itemCountPerOrder.add(shopItems.size());
+        }
+
+        // 1.6 Tính tổng toàn bộ nhóm đơn
+        BigDecimal grandTotalAmount = createdOrders.stream()
+                .map(Order::getTotalAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal grandTotalShipping = createdOrders.stream()
+                .map(Order::getShippingFee)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // 1.7 Build response
+        List<CreateOrderGroupResponse.OrderSummary> summaries = new ArrayList<>();
+        for (int i = 0; i < createdOrders.size(); i++) {
+            summaries.add(CreateOrderGroupResponse.OrderSummary
+                    .fromEntity(createdOrders.get(i), itemCountPerOrder.get(i)));
+        }
+
+        return CreateOrderGroupResponse.builder()
+                .orderGroupId(orderGroupId)
+                .totalOrders(createdOrders.size())
+                .totalAmount(grandTotalAmount)
+                .totalShippingFee(grandTotalShipping)
+                .grandTotal(grandTotalAmount.add(grandTotalShipping))
+                .orders(summaries)
                 .build();
-
-        Order savedOrder = orderRepository.save(order);
-
-        // 1.5 Gán order vào items và lưu
-        for (OrderItem item : orderItems) {
-            item.setOrder(savedOrder);
-        }
-        orderItemRepository.saveAll(orderItems);
-
-        // 1.6 Tạo bản ghi tracking đầu tiên
-        addTracking(savedOrder, TrackingStatus.ORDER_PLACED, "Đơn hàng đã được đặt thành công", customer.getId());
-
-        // 1.7 Đẩy orderId vào Redis Queue (RPUSH - xử lý theo thứ tự FIFO)
-        enqueueOrderAfterCommit(savedOrder.getId());
-        log.info("[OrderService] Đã đẩy orderId [{}] vào Redis Queue '{}'", savedOrder.getId(), ORDER_QUEUE_KEY);
-
-        // 1.8 Gửi thông báo in-app cho khách hàng & người bán
-        notificationService.sendNotification(
-                customer.getId(),
-                NotificationType.ORDER_PLACED,
-                "Đặt hàng thành công",
-                "Đơn hàng #" + savedOrder.getId() + " của bạn đã được đặt thành công.",
-                savedOrder.getId()
-        );
-
-        if (shopId != null) {
-            shopRepository.findById(shopId).ifPresent(shop -> {
-                notificationService.sendNotification(
-                        shop.getUserId(),
-                        NotificationType.NEW_ORDER_FOR_SELLER,
-                        "Có đơn hàng mới",
-                        "Shop của bạn vừa nhận được đơn hàng mới #" + savedOrder.getId() + ".",
-                        savedOrder.getId()
-                );
-            });
-        }
-
-        return OrderResponse.CreateOrderResponse.fromEntity(savedOrder);
     }
 
     // ═════════════════════════════════════════════════════════════════════════

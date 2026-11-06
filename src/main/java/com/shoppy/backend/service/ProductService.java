@@ -11,6 +11,7 @@ import com.shoppy.backend.domain.request.product.ProductVariantRequest;
 import com.shoppy.backend.domain.request.product.AddProductVariantRequest;
 import com.shoppy.backend.domain.request.product.UpdateProductRequest;
 import com.shoppy.backend.domain.request.product.UpdateProductVariantRequest;
+import com.shoppy.backend.domain.request.product.UpdateVariantRequest;
 import com.shoppy.backend.domain.request.product.UpdateVariantStockRequest;
 import com.shoppy.backend.domain.response.product.*;
 import com.shoppy.backend.entity.*;
@@ -324,8 +325,71 @@ public class ProductService {
     }
 
     /**
-     * Thêm nhanh một biến thể mới vào sản phẩm đã có.
-     * Tự động kích hoạt hasVariants = true cho sản phẩm nếu trước đó là sản phẩm đơn.
+     * Cập nhật thông tin một biến thể sản phẩm (partial update).
+     * Chỉ cập nhật các trường có giá trị trong request — trường null giữ nguyên giá trị cũ.
+     * Hỗ trợ upload ảnh mới kèm theo (Multipart) hoặc dùng URL ảnh có sẵn.
+     *
+     * @param email     Email của Seller thực hiện thao tác
+     * @param variantId ID của biến thể cần cập nhật
+     * @param request   DTO chứa thông tin cập nhật (các trường null = giữ nguyên)
+     * @param image     File ảnh mới cho biến thể (optional — ưu tiên hơn imageUrl trong request)
+     * @return          Thông tin biến thể sau khi cập nhật
+     */
+    @Transactional
+    public ProductVariantDTO updateVariant(String email, Long variantId, UpdateVariantRequest request, MultipartFile image) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        ProductVariant variant = productVariantRepository.findById(variantId)
+                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_VARIANT_NOT_FOUND));
+
+        if (Boolean.TRUE.equals(variant.getIsDeleted())) {
+            throw new AppException(ErrorCode.PRODUCT_VARIANT_NOT_FOUND);
+        }
+
+        Product product = variant.getProduct();
+        if (Boolean.TRUE.equals(product.getIsDeleted())) {
+            throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
+        }
+
+        // Kiểm tra quyền sở hữu — ADMIN được thao tác mọi sản phẩm
+        if (user.getRole() != UserRole.ADMIN) {
+            Shop shop = shopRepository.findByUserIdAndIsDeletedFalse(user.getId())
+                    .orElseThrow(() -> new AppException(ErrorCode.SHOP_NOT_FOUND));
+
+            if (!product.getShop().getId().equals(shop.getId())) {
+                throw new AppException(ErrorCode.PRODUCT_NOT_BELONG_TO_SHOP);
+            }
+        }
+
+        // Partial update: chỉ cập nhật trường nào có giá trị, bỏ qua trường null
+        if (request.getVariantName() != null && !request.getVariantName().trim().isEmpty()) {
+            variant.setVariantName(request.getVariantName().trim());
+        }
+        if (request.getPrice() != null) {
+            variant.setPrice(request.getPrice());
+        }
+        if (request.getStockQuantity() != null) {
+            variant.setStockQuantity(request.getStockQuantity());
+        }
+        if (request.getSku() != null) {
+            variant.setSku(request.getSku().trim().isEmpty() ? null : request.getSku().trim());
+        }
+
+        // Ưu tiên: file upload > imageUrl trong request > giữ nguyên
+        if (image != null && !image.isEmpty()) {
+            String imgUrl = cloudinaryService.uploadImage(image, "shoppy_variants");
+            variant.setImageUrl(imgUrl);
+        } else if (request.getImageUrl() != null && !request.getImageUrl().trim().isEmpty()) {
+            variant.setImageUrl(request.getImageUrl().trim());
+        }
+
+        ProductVariant savedVariant = productVariantRepository.save(variant);
+        return ProductVariantDTO.fromEntity(savedVariant);
+    }
+
+    /**
+     * Thêm nhanh một biến thể mới vào sản phẩm đã có.     * Tự động kích hoạt hasVariants = true cho sản phẩm nếu trước đó là sản phẩm đơn.
      *
      * @param email      Email của Seller thực hiện thao tác
      * @param productId  ID của sản phẩm cần thêm biến thể
@@ -426,6 +490,15 @@ public class ProductService {
 
             if (!product.getShop().getId().equals(shop.getId())) {
                 throw new AppException(ErrorCode.PRODUCT_NOT_BELONG_TO_SHOP);
+            }
+        }
+
+        // Chặn deactivate variant cuối cùng còn active — Hướng B
+        if (!active) {
+            long activeVariantCount = productVariantRepository
+                    .countByProductIdAndIsDeletedFalseAndIsActiveTrue(product.getId());
+            if (activeVariantCount <= 1) {
+                throw new AppException(ErrorCode.CANNOT_DEACTIVATE_LAST_ACTIVE_VARIANT);
             }
         }
 
@@ -566,6 +639,42 @@ public class ProductService {
         return mapToPagedProductResponse(productPage);
     }
 
+    /**
+     * Lấy chi tiết sản phẩm theo góc nhìn Seller:
+     * - Không lọc isActive của product (seller xem được cả sản phẩm đang ẩn)
+     * - Trả về TẤT CẢ variant chưa bị xóa, bao gồm cả variant đang inactive
+     * - Bắt buộc kiểm tra ownership: sản phẩm phải thuộc Shop của seller đó
+     *
+     * @param email     Email của seller đang đăng nhập
+     * @param productId ID sản phẩm cần xem
+     * @return Chi tiết sản phẩm theo góc nhìn quản lý
+     */
+    @Transactional(readOnly = true)
+    public ProductDetailResponseDTO getSellerProductDetail(String email, Long productId) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+
+        if (Boolean.TRUE.equals(product.getIsDeleted())) {
+            throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
+        }
+
+        // Kiểm tra ownership — ADMIN được xem mọi sản phẩm
+        if (user.getRole() != UserRole.ADMIN) {
+            Shop shop = shopRepository.findByUserIdAndIsDeletedFalse(user.getId())
+                    .orElseThrow(() -> new AppException(ErrorCode.SHOP_NOT_FOUND));
+
+            if (!product.getShop().getId().equals(shop.getId())) {
+                throw new AppException(ErrorCode.PRODUCT_NOT_BELONG_TO_SHOP);
+            }
+        }
+
+        // Dùng fromEntityForSeller: hiển thị tất cả variant kể cả inactive
+        return ProductDetailResponseDTO.fromEntityForSeller(product);
+    }
+
     private Page<Product> querySellerProducts(Long shopId, StockStatus stockStatus, String keyword, Pageable pageable) {
         boolean hasKeyword = keyword != null;
 
@@ -678,7 +787,7 @@ public class ProductService {
             }
         }
 
-        List<ProductVariant> variants = productVariantRepository.findByProductIdAndIsDeletedFalseOrderByIdAsc(productId);
+        List<ProductVariant> variants = productVariantRepository.findByProductIdAndIsDeletedFalseAndIsActiveTrueOrderByIdAsc(productId);
         return variants.stream()
                 .map(ProductVariantDTO::fromEntity)
                 .toList();
