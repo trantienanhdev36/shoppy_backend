@@ -94,10 +94,12 @@ com\shoppy\backend\controller\AuthController.class
 com\shoppy\backend\entity\OrderItem$OrderItemBuilder.class
 com\shoppy\backend\common\exception\ErrorCode.class
 com\shoppy\backend\domain\request\auth\ForgotPasswordRequest.class
+com\shoppy\backend\domain\response\order\CreateOrderGroupResponse$CreateOrderGroupResponseBuilder.class
 com\shoppy\backend\domain\response\admin\AdminShopDetailResponse$OwnerInfo.class
 com\shoppy\backend\entity\Shop.class
 com\shoppy\backend\controller\WalletController.class
 com\shoppy\backend\domain\request\admin\UpdateUserStatusRequest$UpdateUserStatusRequestBuilder.class
+com\shoppy\backend\domain\response\shipper\ShipperOrderSummaryResponse.class
 com\shoppy\backend\entity\ProductVariant.class
 com\shoppy\backend\entity\WalletDeposit$WalletDepositBuilder.class
 com\shoppy\backend\domain\request\admin\UpdateUserRoleRequest$UpdateUserRoleRequestBuilder.class
@@ -110,6 +112,7 @@ com\shoppy\backend\entity\Category$CategoryBuilderImpl.class
 com\shoppy\backend\entity\Notification.class
 com\shoppy\backend\domain\request\auth\ForgotPasswordRequest$ForgotPasswordRequestBuilder.class
 com\shoppy\backend\domain\request\user\ChangePasswordRequest$ChangePasswordRequestBuilder.class
+com\shoppy\backend\domain\response\order\CreateOrderGroupResponse$OrderSummary.class
 com\shoppy\backend\domain\request\shipper\CodRemittanceRequest.class
 com\shoppy\backend\domain\response\wallet\WalletTransactionResponse$WalletTransactionResponseBuilder.class
 com\shoppy\backend\controller\AdminCategoryController.class
@@ -134,6 +137,8 @@ com\shoppy\backend\domain\request\shop\UpdateShopRequest.class
 com\shoppy\backend\service\CategoryService.class
 com\shoppy\backend\domain\request\category\CategoryRequest$CategoryRequestBuilder.class
 com\shoppy\backend\domain\response\wallet\WalletTransactionResponse.class
+com\shoppy\backend\domain\response\order\CreateOrderGroupResponse.class
+com\shoppy\backend\domain\response\shipper\ShipperOrderSummaryResponse$ShipperOrderSummaryResponseBuilder.class
 com\shoppy\backend\entity\Shop$ShopBuilder.class
 com\shoppy\backend\repository\CategoryRepository.class
 com\shoppy\backend\common\enums\OrderStatus.class
@@ -141,6 +146,7 @@ com\shoppy\backend\domain\response\auth\AuthResponse$AuthResponseBuilder.class
 com\shoppy\backend\domain\request\product\CreateProductRequest.class
 com\shoppy\backend\entity\Order.class
 com\shoppy\backend\repository\ProductRepository$ProductPriceRange.class
+com\shoppy\backend\domain\response\order\CreateOrderGroupResponse$OrderSummary$OrderSummaryBuilder.class
 com\shoppy\backend\domain\request\admin\UpdateShopStatusRequest.class
 com\shoppy\backend\common\dto\ApiResponse$ApiResponseBuilder.class
 com\shoppy\backend\domain\response\notification\NotificationResponse.class

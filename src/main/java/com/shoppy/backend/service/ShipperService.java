@@ -11,6 +11,8 @@ import com.shoppy.backend.domain.request.shipper.CodRemittanceRequest;
 import com.shoppy.backend.domain.request.shipper.RegisterShipperRequest;
 import com.shoppy.backend.domain.response.order.OrderResponse;
 import com.shoppy.backend.domain.response.shipper.CodBalanceResponse;
+import com.shoppy.backend.domain.response.shipper.ShipperOrderDetailResponse;
+import com.shoppy.backend.domain.response.shipper.ShipperOrderSummaryResponse;
 import com.shoppy.backend.domain.response.shipper.ShipperResponse;
 import com.shoppy.backend.entity.*;
 import com.shoppy.backend.repository.*;
@@ -22,6 +24,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -34,6 +38,7 @@ public class ShipperService {
     private final OrderItemRepository orderItemRepository;
     private final OrderTrackingRepository orderTrackingRepository;
     private final ShipperCodTransactionRepository shipperCodTransactionRepository;
+    private final ShopRepository shopRepository;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // 1. Xem đơn hàng READY_TO_SHIP có thể nhận (theo hãng vận chuyển)
@@ -44,16 +49,13 @@ public class ShipperService {
      * chỉ trả về đơn thuộc hãng vận chuyển của shipper hiện tại.
      */
     @Transactional(readOnly = true)
-    public List<OrderResponse.OrderSummaryResponse> getAvailableOrders(String shipperEmail) {
+    public List<ShipperOrderSummaryResponse> getAvailableOrders(String shipperEmail) {
         User shipper = getShipperByEmail(shipperEmail);
         validateShipperHasCompany(shipper);
 
-        return orderRepository
-                .findByShippingCompanyIdAndStatusOrderByCreatedAtAsc(
-                        shipper.getShippingCompanyId(), OrderStatus.READY_TO_SHIP)
-                .stream()
-                .map(OrderResponse.OrderSummaryResponse::fromEntity)
-                .toList();
+        List<Order> orders = orderRepository.findByShippingCompanyIdAndStatusOrderByCreatedAtAsc(
+                shipper.getShippingCompanyId(), OrderStatus.READY_TO_SHIP);
+        return mapToShipperOrderSummaries(orders);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -65,7 +67,7 @@ public class ShipperService {
      * Chỉ được xem đơn thuộc hãng vận chuyển của mình.
      */
     @Transactional(readOnly = true)
-    public OrderResponse.OrderDetailResponse getOrderDetail(String shipperEmail, Long orderId) {
+    public ShipperOrderDetailResponse getOrderDetail(String shipperEmail, Long orderId) {
         User shipper = getShipperByEmail(shipperEmail);
         validateShipperHasCompany(shipper);
 
@@ -73,7 +75,10 @@ public class ShipperService {
                 .findByIdAndShippingCompanyId(orderId, shipper.getShippingCompanyId())
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
-        return buildDetailResponse(order);
+        OrderResponse.OrderDetailResponse detail = buildDetailResponse(order);
+        Shop shop = shopRepository.findById(order.getShopId())
+                .orElseThrow(() -> new AppException(ErrorCode.SHOP_NOT_FOUND));
+        return ShipperOrderDetailResponse.fromEntity(detail, shop.getAddress());
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -257,7 +262,7 @@ public class ShipperService {
     // ═══════════════════════════════════════════════════════════════════════════
 
     @Transactional(readOnly = true)
-    public List<OrderResponse.OrderSummaryResponse> getMyDeliveries(
+    public List<ShipperOrderSummaryResponse> getMyDeliveries(
             String shipperEmail, OrderStatus status) {
         User shipper = getShipperByEmail(shipperEmail);
 
@@ -268,9 +273,7 @@ public class ShipperService {
             orders = orderRepository.findByShipperIdOrderByCreatedAtDesc(shipper.getId());
         }
 
-        return orders.stream()
-                .map(OrderResponse.OrderSummaryResponse::fromEntity)
-                .toList();
+        return mapToShipperOrderSummaries(orders);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -343,6 +346,30 @@ public class ShipperService {
         List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
         List<OrderTracking> trackings = orderTrackingRepository.findByOrderIdOrderByCreatedAtAsc(order.getId());
         return OrderResponse.OrderDetailResponse.fromEntity(order, items, trackings);
+    }
+
+    private List<ShipperOrderSummaryResponse> mapToShipperOrderSummaries(List<Order> orders) {
+        if (orders.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> shopIds = orders.stream()
+                .map(Order::getShopId)
+                .distinct()
+                .toList();
+        Map<Long, Shop> shopsById = shopRepository.findAllById(shopIds).stream()
+                .collect(Collectors.toMap(Shop::getId, shop -> shop));
+
+        return orders.stream()
+                .map(order -> {
+                    Shop shop = shopsById.get(order.getShopId());
+                    if (shop == null) {
+                        throw new AppException(ErrorCode.SHOP_NOT_FOUND);
+                    }
+                    return ShipperOrderSummaryResponse.fromEntity(
+                            order, shop.getAddress());
+                })
+                .toList();
     }
 
     private void addTracking(Order order, TrackingStatus status, String description, Long updatedBy) {

@@ -78,6 +78,7 @@ D:\itellij_project\Shoppy\src\main\java\com\shoppy\backend\domain\response\produ
 D:\itellij_project\Shoppy\src\main\java\com\shoppy\backend\domain\response\product\ProductResponseDTO.java
 D:\itellij_project\Shoppy\src\main\java\com\shoppy\backend\domain\response\product\ProductVariantDTO.java
 D:\itellij_project\Shoppy\src\main\java\com\shoppy\backend\domain\response\shipper\CodBalanceResponse.java
+D:\itellij_project\Shoppy\src\main\java\com\shoppy\backend\domain\response\shipper\ShipperOrderSummaryResponse.java
 D:\itellij_project\Shoppy\src\main\java\com\shoppy\backend\domain\response\shipper\ShipperResponse.java
 D:\itellij_project\Shoppy\src\main\java\com\shoppy\backend\domain\response\shipping\ShippingCompanyResponse.java
 D:\itellij_project\Shoppy\src\main\java\com\shoppy\backend\domain\response\shop\ShopPublicProfileResponse.java

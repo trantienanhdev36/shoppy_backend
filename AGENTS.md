@@ -1294,3 +1294,18 @@ docker-compose up -d
   - Trường hợp đặt từ 1 shop: `orderGroupId = null`, `totalOrders = 1`, `orders` có 1 phần tử — backward-compatible về data, chỉ khác structure.
   - `shippingFee` áp dụng **per order** (mỗi đơn trả phí riêng) — đây là quyết định thiết kế đơn giản nhất; có thể điều chỉnh sau.
   - Wallet payment: mỗi đơn trong nhóm vẫn được xử lý qua Redis Queue độc lập — đảm bảo atomicity riêng cho từng shop. Nếu 1 đơn hết kho thì đơn đó bị cancel, đơn còn lại vẫn tiến hành bình thường.
+
+---
+
+### [2026-11-07] — Trả địa chỉ Shop trong danh sách đơn hàng Shipper
+- **Thay đổi**:
+  - Tạo `ShipperOrderSummaryResponse` và `ShipperOrderDetailResponse` riêng cho API danh sách/chi tiết đơn hàng của shipper, thay trường `shopId` bằng `shopAddress`.
+  - Cập nhật `GET /shipper/orders/available`, `GET /shipper/orders/my-deliveries`, và `GET /shipper/orders/{id}` để tra cứu địa chỉ Shop theo `shopId` của từng đơn và trả về trong response.
+- **File liên quan**:
+  - `domain/response/shipper/ShipperOrderSummaryResponse.java` (tạo mới)
+  - `domain/response/shipper/ShipperOrderDetailResponse.java` (tạo mới)
+  - `service/ShipperService.java` (sửa)
+  - `controller/ShipperController.java` (sửa)
+  - `AGENTS.md` (sửa)
+- **Lý do**: Shipper cần địa chỉ cửa hàng để lấy hàng thay vì chỉ nhận được mã Shop.
+- **Lưu ý**: Thay đổi response chỉ áp dụng cho hai API danh sách đơn hàng của shipper; các API đơn hàng khác giữ nguyên `shopId`.

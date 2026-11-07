@@ -6,6 +6,8 @@ import com.shoppy.backend.common.enums.ShipperTransactionType;
 import com.shoppy.backend.domain.request.shipper.CodRemittanceRequest;
 import com.shoppy.backend.domain.response.order.OrderResponse;
 import com.shoppy.backend.domain.response.shipper.CodBalanceResponse;
+import com.shoppy.backend.domain.response.shipper.ShipperOrderDetailResponse;
+import com.shoppy.backend.domain.response.shipper.ShipperOrderSummaryResponse;
 import com.shoppy.backend.service.ShipperService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -44,10 +46,10 @@ public class ShipperController {
      * Lấy danh sách đơn READY_TO_SHIP thuộc hãng vận chuyển của shipper.
      */
     @GetMapping("/orders/available")
-    public ResponseEntity<ApiResponse<List<OrderResponse.OrderSummaryResponse>>> getAvailableOrders(
+    public ResponseEntity<ApiResponse<List<ShipperOrderSummaryResponse>>> getAvailableOrders(
             Authentication authentication) {
         String email = authentication.getName();
-        List<OrderResponse.OrderSummaryResponse> orders = shipperService.getAvailableOrders(email);
+        List<ShipperOrderSummaryResponse> orders = shipperService.getAvailableOrders(email);
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách đơn hàng sẵn sàng thành công!", orders));
     }
 
@@ -56,11 +58,11 @@ public class ShipperController {
      * Xem chi tiết 1 đơn hàng (chỉ xem được đơn thuộc hãng của mình).
      */
     @GetMapping("/orders/{id}")
-    public ResponseEntity<ApiResponse<OrderResponse.OrderDetailResponse>> getOrderDetail(
+    public ResponseEntity<ApiResponse<ShipperOrderDetailResponse>> getOrderDetail(
             @PathVariable Long id,
             Authentication authentication) {
         String email = authentication.getName();
-        OrderResponse.OrderDetailResponse order = shipperService.getOrderDetail(email, id);
+        ShipperOrderDetailResponse order = shipperService.getOrderDetail(email, id);
         return ResponseEntity.ok(ApiResponse.success("Lấy chi tiết đơn hàng thành công!", order));
     }
 
@@ -96,11 +98,11 @@ public class ShipperController {
      * Xem danh sách đơn hàng của bản thân. Nếu không truyền status → lấy tất cả.
      */
     @GetMapping("/orders/my-deliveries")
-    public ResponseEntity<ApiResponse<List<OrderResponse.OrderSummaryResponse>>> getMyDeliveries(
+    public ResponseEntity<ApiResponse<List<ShipperOrderSummaryResponse>>> getMyDeliveries(
             @RequestParam(required = false) OrderStatus status,
             Authentication authentication) {
         String email = authentication.getName();
-        List<OrderResponse.OrderSummaryResponse> orders = shipperService.getMyDeliveries(email, status);
+        List<ShipperOrderSummaryResponse> orders = shipperService.getMyDeliveries(email, status);
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách đơn hàng của tôi thành công!", orders));
     }
 
