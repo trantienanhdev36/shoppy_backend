@@ -50,6 +50,7 @@ public class OrderService {
     private final WalletService walletService;
     private final ShopRepository shopRepository;
     private final NotificationService notificationService;
+    private final ShopBalanceService shopBalanceService;
 
     // ── Redis ─────────────────────────────────────────────────────────────────
     private final StringRedisTemplate redisTemplate;
@@ -638,20 +639,21 @@ public class OrderService {
      */
     @Transactional
     public OrderResponse.OrderDetailResponse confirmDelivered(Long orderId, Long shipperId) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng: " + orderId));
+        Order order = orderRepository.findByIdWithLock(orderId)
+                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
         if (!shipperId.equals(order.getShipperId())) {
-            throw new RuntimeException("Bạn không phải shipper được giao đơn hàng này");
+            throw new AppException(ErrorCode.SHIPPER_NOT_ASSIGNED);
         }
 
         if (order.getStatus() != OrderStatus.SHIPPING) {
-            throw new RuntimeException("Đơn hàng không ở trạng thái đang giao");
+            throw new AppException(ErrorCode.ORDER_WRONG_STATUS);
         }
 
         order.setStatus(OrderStatus.DELIVERED);
         orderRepository.save(order);
         addTracking(order, TrackingStatus.DELIVERED, "Giao hàng thành công", shipperId);
+        shopBalanceService.creditWalletOrder(order);
 
         notificationService.sendNotification(
                 order.getCustomerId(),

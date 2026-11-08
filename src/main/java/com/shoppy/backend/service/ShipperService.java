@@ -1,6 +1,7 @@
 package com.shoppy.backend.service;
 
 import com.shoppy.backend.common.enums.OrderStatus;
+import com.shoppy.backend.common.enums.PaymentMethod;
 import com.shoppy.backend.common.enums.ShipperTransactionType;
 import com.shoppy.backend.common.enums.TrackingStatus;
 import com.shoppy.backend.common.enums.TransactionStatus;
@@ -39,6 +40,7 @@ public class ShipperService {
     private final OrderTrackingRepository orderTrackingRepository;
     private final ShipperCodTransactionRepository shipperCodTransactionRepository;
     private final ShopRepository shopRepository;
+    private final ShopBalanceService shopBalanceService;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // 1. Xem đơn hàng READY_TO_SHIP có thể nhận (theo hãng vận chuyển)
@@ -94,7 +96,7 @@ public class ShipperService {
         User shipper = getShipperByEmail(shipperEmail);
         validateShipperHasCompany(shipper);
 
-        Order order = orderRepository.findById(orderId)
+        Order order = orderRepository.findByIdWithLock(orderId)
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
         if (order.getStatus() != OrderStatus.READY_TO_SHIP) {
@@ -128,7 +130,7 @@ public class ShipperService {
     public OrderResponse.OrderDetailResponse confirmDelivered(String shipperEmail, Long orderId) {
         User shipper = getShipperByEmail(shipperEmail);
 
-        Order order = orderRepository.findById(orderId)
+        Order order = orderRepository.findByIdWithLock(orderId)
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
         if (!shipper.getId().equals(order.getShipperId())) {
@@ -142,9 +144,10 @@ public class ShipperService {
         order.setStatus(OrderStatus.DELIVERED);
         orderRepository.save(order);
         addTracking(order, TrackingStatus.DELIVERED, "Giao hàng thành công", shipper.getId());
+        shopBalanceService.creditWalletOrder(order);
 
         // Nếu COD → ghi nhận COLLECTION
-        if (order.getPaymentMethod().name().equals("COD")) {
+        if (order.getPaymentMethod() == PaymentMethod.COD) {
             BigDecimal codAmount = order.getTotalAmount().add(order.getShippingFee());
             ShipperCodTransaction codTx = ShipperCodTransaction.builder()
                     .orderId(order.getId())
@@ -227,6 +230,8 @@ public class ShipperService {
     public OrderResponse.ShipperCodTransactionResponse submitCodRemittance(
             String shipperEmail, CodRemittanceRequest request) {
         User shipper = getShipperByEmail(shipperEmail);
+        shipper = userRepository.findByIdWithLock(shipper.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         // Kiểm tra số dư hiện tại đủ để nộp
         BigDecimal totalCollected = shipperCodTransactionRepository
@@ -252,6 +257,8 @@ public class ShipperService {
                 .note(note)
                 .build();
         ShipperCodTransaction saved = shipperCodTransactionRepository.save(remittance);
+        shopBalanceService.creditRemittedCodOrders(
+                shipper.getId(), totalRemitted.add(request.getAmount()));
 
         log.info("[ShipperService] Shipper [{}] nộp {} VND về công ty", shipper.getId(), request.getAmount());
         return OrderResponse.ShipperCodTransactionResponse.fromEntity(saved);

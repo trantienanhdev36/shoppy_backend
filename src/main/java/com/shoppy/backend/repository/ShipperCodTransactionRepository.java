@@ -16,6 +16,16 @@ public interface ShipperCodTransactionRepository extends JpaRepository<ShipperCo
     List<ShipperCodTransaction> findByShipperIdAndTypeOrderByCreatedAtDesc(Long shipperId, ShipperTransactionType type);
     List<ShipperCodTransaction> findByOrderId(Long orderId);
 
+    @Query("""
+        SELECT t FROM ShipperCodTransaction t
+        WHERE t.shipperId = :shipperId
+          AND t.type = com.shoppy.backend.common.enums.ShipperTransactionType.COLLECTION
+          AND t.status = com.shoppy.backend.common.enums.TransactionStatus.COMPLETED
+          AND t.isDeleted = false
+        ORDER BY t.createdAt ASC, t.id ASC
+    """)
+    List<ShipperCodTransaction> findCompletedCollectionsByShipperId(@Param("shipperId") Long shipperId);
+
     /** Tổng tiền COD theo loại giao dịch (COLLECTION hoặc REMITTANCE) */
     @Query("SELECT COALESCE(SUM(t.amount), 0) FROM ShipperCodTransaction t WHERE t.shipperId = :shipperId AND t.type = :type AND t.isDeleted = false")
     BigDecimal sumAmountByShipperIdAndType(@Param("shipperId") Long shipperId, @Param("type") ShipperTransactionType type);

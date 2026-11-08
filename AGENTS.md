@@ -1309,3 +1309,25 @@ docker-compose up -d
   - `AGENTS.md` (sửa)
 - **Lý do**: Shipper cần địa chỉ cửa hàng để lấy hàng thay vì chỉ nhận được mã Shop.
 - **Lưu ý**: Thay đổi response chỉ áp dụng cho hai API danh sách đơn hàng của shipper; các API đơn hàng khác giữ nguyên `shopId`.
+
+---
+
+### [2026-11-08] — Ghi có số dư Shop sau giao hàng và đối soát COD
+- **Thay đổi**:
+  - Tạo `ShopBalanceService` và bảng `shop_balance_transactions` để ghi nhận mỗi đơn chỉ cộng số dư Shop một lần.
+  - Đơn thanh toán ví được cộng tiền hàng vào số dư Shop khi chuyển sang `DELIVERED`.
+  - Đơn COD chỉ được cộng tiền hàng sau khi shipper nộp đủ khoản COD tương ứng; khoản nộp được phân bổ lần lượt theo các giao dịch thu COD cũ nhất.
+  - Không cộng phí vận chuyển vào số dư Shop. Khóa đơn và Shop khi xử lý để tránh cập nhật trạng thái/số dư trùng hoặc mất cập nhật đồng thời.
+  - Đồng bộ cả hai luồng xác nhận giao hàng trong `ShipperService` và `OrderService`.
+- **File liên quan**:
+  - `entity/ShopBalanceTransaction.java` (tạo mới)
+  - `repository/ShopBalanceTransactionRepository.java` (tạo mới)
+  - `repository/ShipperCodTransactionRepository.java` (sửa)
+  - `repository/ShopRepository.java` (sửa)
+  - `service/ShopBalanceService.java` (tạo mới)
+  - `service/ShipperService.java` (sửa)
+  - `service/OrderService.java` (sửa)
+  - `src/test/java/com/shoppy/backend/service/ShopBalanceServiceTest.java` (tạo mới)
+  - `AGENTS.md` (sửa)
+- **Lý do**: Ghi nhận doanh thu Shop đúng với tiền đã thu; COD không được tính là số dư khả dụng trước khi shipper nộp tiền về công ty.
+- **Lưu ý**: Schema mới được Hibernate `ddl-auto=update` tạo/cập nhật. Đơn đã giao trước khi triển khai chưa được backfill tự động và cần đối soát riêng nếu muốn cộng lại.
