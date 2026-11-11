@@ -76,6 +76,10 @@ public class JwtUtils {
 
     public boolean isTokenValid(String token, UserDetails userDetails) {
         final String username = extractEmail(token);
-        return (username != null && username.equals(userDetails.getUsername())) && validateToken(token);
+        // Kiểm tra: đúng user + token còn hạn + tài khoản chưa bị vô hiệu + chưa bị khóa
+        return (username != null && username.equals(userDetails.getUsername()))
+                && validateToken(token)
+                && userDetails.isEnabled()
+                && userDetails.isAccountNonLocked();
     }
 }

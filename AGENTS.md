@@ -1331,3 +1331,53 @@ docker-compose up -d
   - `AGENTS.md` (sửa)
 - **Lý do**: Ghi nhận doanh thu Shop đúng với tiền đã thu; COD không được tính là số dư khả dụng trước khi shipper nộp tiền về công ty.
 - **Lưu ý**: Schema mới được Hibernate `ddl-auto=update` tạo/cập nhật. Đơn đã giao trước khi triển khai chưa được backfill tự động và cần đối soát riêng nếu muốn cộng lại.
+
+---
+
+### [2026-11-11] — Chặn JWT Token cũ khi tài khoản bị khóa + Tách mã lỗi BLOCKED
+
+- **Thay đổi**:
+  1. **Thêm 2 ErrorCode mới vào `ErrorCode.java`**:
+     - `ACCOUNT_BLOCKED (4050)`: Dùng khi tài khoản bị Admin khóa (`BLOCKED`) cố đăng nhập — HTTP 403.
+     - `ACCOUNT_INACTIVE (4051)`: Dùng khi tài khoản chưa xác thực email (`INACTIVE`, `PENDING`) cố đăng nhập — HTTP 403. Thay thế `ACCOUNT_NOT_ACTIVATED` cũ (message rõ ràng hơn).
+  2. **Sửa `AuthService.login()` và `forgotPassword()`**: Phân biệt rõ 2 trường hợp `BLOCKED` vs `INACTIVE`/`PENDING` thay vì dùng chung `ACCOUNT_NOT_ACTIVATED`.
+  3. **Sửa `CustomUserDetailsService.loadUserByUsername()`**: Map `UserStatus` sang Spring Security `UserDetails` flags:
+     - `ACTIVE` → `enabled=true`, `accountNonLocked=true`
+     - `BLOCKED` → `enabled=false`, `accountNonLocked=false`
+     - `INACTIVE/PENDING` → `enabled=false`, `accountNonLocked=true`
+  4. **Sửa `JwtUtils.isTokenValid()`**: Bổ sung kiểm tra `userDetails.isEnabled() && userDetails.isAccountNonLocked()`. **Hiệu quả: JWT token cũ bị vô hiệu ngay lập tức khi Admin thay đổi trạng thái tài khoản** — không cần chờ token hết hạn.
+
+- **File liên quan**:
+  - `common/exception/ErrorCode.java` (sửa: thêm `ACCOUNT_BLOCKED`, `ACCOUNT_INACTIVE`)
+  - `service/AuthService.java` (sửa: `login()`, `forgotPassword()`)
+  - `service/CustomUserDetailsService.java` (sửa: map UserStatus → UserDetails flags)
+  - `common/util/JwtUtils.java` (sửa: `isTokenValid()` thêm check enabled + nonLocked)
+  - `AGENTS.md` (sửa)
+
+- **Lý do**: Lỗ hổng bảo mật — user bị Admin khóa vẫn tiếp tục gọi được API bằng JWT token cũ. Ngoài ra message lỗi cũ `ACCOUNT_NOT_ACTIVATED` không phân biệt được tài khoản chưa verify email vs tài khoản bị Admin khóa.
+
+- **Lưu ý**:
+  - `CustomUserDetailsService` load user từ DB **mỗi request**, nên trạng thái luôn được kiểm tra real-time — không cần cache invalidation.
+  - `ACCOUNT_NOT_ACTIVATED (4009)` giữ nguyên trong enum (chưa xóa) để đảm bảo không break code khác chưa kiểm tra. Có thể dọn sau khi verify không còn nơi nào tham chiếu.
+  - Nếu cần bypass check status (ví dụ: endpoint đặc biệt dành cho Admin), override logic trong controller cụ thể thay vì sửa filter.
+
+---
+
+### [2026-11-11] — Thêm thống kê `totalProducts` & `totalOrders` vào `GET /shops/me`
+
+- **Thay đổi**:
+  1. **Sửa `ShopResponse`**: Thêm 2 trường `totalProducts` (long) và `totalOrders` (long). Thêm overload `fromEntity(shop, totalProducts, totalOrders)` cho trường hợp có số liệu; giữ nguyên `fromEntity(shop)` (trả 0, 0) cho trường hợp đăng ký shop lần đầu.
+  2. **Sửa `ShopService.getMyShop()`**: Inject thêm `ProductRepository` và `OrderRepository`, đếm số liệu rồi truyền vào factory method mới.
+
+- **File liên quan**:
+  - `domain/response/shop/ShopResponse.java` (sửa: thêm 2 field + overload factory method)
+  - `service/ShopService.java` (sửa: inject 2 repo mới + cập nhật `getMyShop()`)
+  - `AGENTS.md` (sửa)
+
+- **Lý do**: Seller cần thấy ngay tổng sản phẩm và tổng đơn hàng khi load dashboard mà không phải gọi thêm API riêng. Repository method đã có sẵn (`countByShopIdAndIsDeletedFalse`, `countByShopId`).
+
+- **Lưu ý**:
+  - `GET /shops/me` trả `totalProducts` = sản phẩm **chưa bị xóa mềm** (kể cả đang inactive).
+  - `GET /shops/me` trả `totalOrders` = **toàn bộ đơn hàng** của shop (mọi trạng thái).
+  - `registerShop()` vẫn dùng `fromEntity(shop)` → trả `totalProducts=0, totalOrders=0` — đúng vì shop mới tạo chưa có sản phẩm/đơn hàng.
+  - Endpoint Public `GET /shops/{id}` không bị ảnh hưởng (dùng `ShopPublicProfileResponse` riêng).

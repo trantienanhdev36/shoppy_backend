@@ -55,7 +55,9 @@ public enum ErrorCode {
     SHIPPING_COMPANY_CODE_EXISTED(4046, "Mã đơn vị vận chuyển đã tồn tại, vui lòng chọn mã khác", HttpStatus.BAD_REQUEST),
     SHIPPING_COMPANY_NAME_EXISTED(4047, "Tên đơn vị vận chuyển đã tồn tại, vui lòng chọn tên khác", HttpStatus.BAD_REQUEST),
     INVALID_SHIPPING_COMPANY_STATUS(4048, "Trạng thái đơn vị vận chuyển không hợp lệ (phải là ACTIVE hoặc INACTIVE)", HttpStatus.BAD_REQUEST),
-    CANNOT_DEACTIVATE_LAST_ACTIVE_VARIANT(4049, "Không thể ẩn biến thể duy nhất còn hoạt động. Vui lòng ẩn toàn bộ sản phẩm.", HttpStatus.BAD_REQUEST);
+    CANNOT_DEACTIVATE_LAST_ACTIVE_VARIANT(4049, "Không thể ẩn biến thể duy nhất còn hoạt động. Vui lòng ẩn toàn bộ sản phẩm.", HttpStatus.BAD_REQUEST),
+    ACCOUNT_BLOCKED(4050, "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên để được hỗ trợ.", HttpStatus.FORBIDDEN),
+    ACCOUNT_INACTIVE(4051, "Tài khoản chưa được kích hoạt email. Vui lòng kiểm tra hộp thư và xác thực tài khoản.", HttpStatus.FORBIDDEN);
 
     private final int code;
     private final String message;

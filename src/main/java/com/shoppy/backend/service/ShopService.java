@@ -11,6 +11,8 @@ import com.shoppy.backend.domain.response.shop.ShopPublicProfileResponse;
 import com.shoppy.backend.domain.response.shop.ShopResponse;
 import com.shoppy.backend.entity.Shop;
 import com.shoppy.backend.entity.User;
+import com.shoppy.backend.repository.OrderRepository;
+import com.shoppy.backend.repository.ProductRepository;
 import com.shoppy.backend.repository.ShopRepository;
 import com.shoppy.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +31,8 @@ public class ShopService {
     private final UserRepository userRepository;
     private final CloudinaryService cloudinaryService;
     private final ProductService productService;
+    private final ProductRepository productRepository;
+    private final OrderRepository orderRepository;
 
     @Value("${app.default-avatar-url:https://res.cloudinary.com/dii10rze6/image/upload/v1790846872/shoppy_avatars/vzsefqbb6qlp0zqtx3yy.png}")
     private String defaultLOGOUrl;
@@ -84,7 +88,10 @@ public class ShopService {
         Shop shop = shopRepository.findByUserIdAndIsDeletedFalse(user.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.SHOP_NOT_FOUND));
 
-        return ShopResponse.fromEntity(shop);
+        long totalProducts = productRepository.countByShopIdAndIsDeletedFalse(shop.getId());
+        long totalOrders   = orderRepository.countByShopId(shop.getId());
+
+        return ShopResponse.fromEntity(shop, totalProducts, totalOrders);
     }
 
     /**

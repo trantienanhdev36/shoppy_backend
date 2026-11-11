@@ -51,9 +51,12 @@ public class AuthService {
             throw new AppException(ErrorCode.WRONG_PASSWORD);
         }
 
-        // 3. Kiểm tra Trạng thái kích hoạt
+        // 3. Kiểm tra Trạng thái tài khoản
+        if (user.getStatus() == UserStatus.BLOCKED) {
+            throw new AppException(ErrorCode.ACCOUNT_BLOCKED);
+        }
         if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new AppException(ErrorCode.ACCOUNT_NOT_ACTIVATED);
+            throw new AppException(ErrorCode.ACCOUNT_INACTIVE);
         }
 
         // 4. Sinh mã JWT Access Token
@@ -120,8 +123,11 @@ public class AuthService {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
+        if (user.getStatus() == UserStatus.BLOCKED) {
+            throw new AppException(ErrorCode.ACCOUNT_BLOCKED);
+        }
         if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new AppException(ErrorCode.ACCOUNT_NOT_ACTIVATED);
+            throw new AppException(ErrorCode.ACCOUNT_INACTIVE);
         }
 
         // 2. Kiểm tra Cooldown chống spam gửi mã liên tục (60 giây)
